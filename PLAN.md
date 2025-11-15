@@ -691,15 +691,487 @@ npm run test
 
 ## 下一步计划（MVP后）
 
+### Phase 6: 日志系统与排障增强 [2-3小时]
+
+**目标**: 实现完善的日志系统，提升问题排查能力
+
+**任务清单**:
+```bash
+# Checkpoint 6.1: 结构化日志系统
+□ 集成日志框架（winston/pino）
+□ 实现统一日志格式（JSON格式，包含timestamp、level、context等）
+□ 配置日志级别（debug/info/warn/error）
+□ 实现日志文件轮转（按日期/大小）
+□ 添加请求追踪ID（用于关联前后端日志）
+
+# Checkpoint 6.2: 前端日志增强
+□ 实现前端日志收集器
+□ 记录API请求/响应详情（URL、参数、状态码、耗时）
+□ 记录用户操作轨迹
+□ 实现错误堆栈捕获
+□ 添加性能监控日志（组件渲染时间等）
+□ 实现日志上报到后端（可选）
+
+# Checkpoint 6.3: 后端日志增强
+□ 记录HTTP请求详情（method、path、ip、user-agent）
+□ 记录LLM调用详情（provider、model、tokens、耗时）
+□ 记录会话管理操作
+□ 实现敏感信息脱敏（用户输入内容可选记录hash）
+□ 添加慢查询日志（API耗时>1s）
+□ 实现错误堆栈完整记录
+
+# Checkpoint 6.4: "Failed to send message" 排障
+□ 添加后端健康检查端点（/api/health）
+□ 实现LLM连接状态检测
+□ 添加详细的错误类型识别（网络、超时、LLM、验证等）
+□ 实现前端错误提示优化（根据错误类型显示不同提示）
+□ 添加连接诊断工具（测试后端/LLM连接）
+□ 编写故障排查指南
+```
+
+**核心实现**:
+```typescript
+// backend/src/utils/logger.ts
+import winston from 'winston';
+
+export const logger = winston.createLogger({
+  level: process.env.LOG_LEVEL || 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.errors({ stack: true }),
+    winston.format.json()
+  ),
+  defaultMeta: { service: 'apologize-backend' },
+  transports: [
+    new winston.transports.File({
+      filename: 'logs/error.log',
+      level: 'error'
+    }),
+    new winston.transports.File({
+      filename: 'logs/combined.log'
+    }),
+    new winston.transports.Console({
+      format: winston.format.simple()
+    })
+  ],
+});
+
+// 请求日志中间件
+export function requestLogger(req, res, next) {
+  const start = Date.now();
+  const requestId = uuidv4();
+
+  req.requestId = requestId;
+
+  logger.info('HTTP Request', {
+    requestId,
+    method: req.method,
+    path: req.path,
+    ip: req.ip,
+    userAgent: req.get('user-agent'),
+  });
+
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    logger.info('HTTP Response', {
+      requestId,
+      statusCode: res.statusCode,
+      duration: `${duration}ms`,
+    });
+
+    if (duration > 1000) {
+      logger.warn('Slow API Request', {
+        requestId,
+        duration: `${duration}ms`,
+        path: req.path,
+      });
+    }
+  });
+
+  next();
+}
+
+// LLM调用日志
+export function logLLMCall(params: {
+  provider: string;
+  model: string;
+  promptTokens: number;
+  completionTokens: number;
+  duration: number;
+  error?: any;
+}) {
+  if (params.error) {
+    logger.error('LLM Call Failed', params);
+  } else {
+    logger.info('LLM Call Success', params);
+  }
+}
+```
+
+```typescript
+// frontend/src/utils/logger.ts
+class FrontendLogger {
+  private requestId: string | null = null;
+
+  logApiRequest(url: string, method: string, data?: any) {
+    console.log('[API Request]', {
+      timestamp: new Date().toISOString(),
+      url,
+      method,
+      data: this.sanitizeData(data),
+    });
+  }
+
+  logApiResponse(url: string, status: number, data?: any, duration?: number) {
+    console.log('[API Response]', {
+      timestamp: new Date().toISOString(),
+      url,
+      status,
+      duration: duration ? `${duration}ms` : undefined,
+      data: this.sanitizeData(data),
+    });
+  }
+
+  logApiError(url: string, error: any) {
+    console.error('[API Error]', {
+      timestamp: new Date().toISOString(),
+      url,
+      error: {
+        message: error.message,
+        code: error.code,
+        status: error.response?.status,
+        data: error.response?.data,
+        stack: error.stack,
+      },
+    });
+  }
+
+  private sanitizeData(data: any): any {
+    // 避免记录敏感信息或过长内容
+    if (!data) return data;
+    const str = JSON.stringify(data);
+    return str.length > 500 ? str.substring(0, 500) + '...' : data;
+  }
+}
+
+export const logger = new FrontendLogger();
+```
+
+**健康检查端点**:
+```typescript
+// backend/src/routes/health.routes.ts
+router.get('/health', async (req, res) => {
+  const llmHealthy = await llmService.healthCheck();
+
+  res.json({
+    status: llmHealthy ? 'healthy' : 'degraded',
+    timestamp: new Date().toISOString(),
+    services: {
+      api: 'healthy',
+      llm: llmHealthy ? 'healthy' : 'unavailable',
+    },
+    config: {
+      provider: llmService.getConfig().provider,
+      model: llmService.getConfig().model,
+    },
+  });
+});
+```
+
+**验收标准**:
+- [ ] 所有API请求都有完整的日志记录
+- [ ] 日志包含请求ID可追踪完整调用链
+- [ ] LLM调用失败时有详细错误信息
+- [ ] 前端错误提示根据错误类型显示友好信息
+- [ ] 健康检查端点正常工作
+- [ ] 日志文件自动轮转，不会无限增长
+
+**🔴 STOP & COMMIT**: `git commit -m "Phase 6: Logging system and troubleshooting enhancements"`
+
+---
+
+### Phase 7: 访问认证机制 [2-3小时]
+
+**目标**: 实现基于邀请码/密码的访问控制，保护应用不被未授权访问
+
+**任务清单**:
+```bash
+# Checkpoint 7.1: 后端认证系统
+□ 设计认证方案（邀请码/密码）
+□ 实现认证中间件
+□ 创建认证API（验证邀请码、生成token）
+□ 实现JWT token机制
+□ 添加token验证中间件
+□ 配置认证豁免路径（健康检查等）
+
+# Checkpoint 7.2: 前端认证界面
+□ 创建登录/认证页面
+□ 实现邀请码/密码输入表单
+□ 添加认证状态管理
+□ 实现token存储（localStorage/sessionStorage）
+□ 添加自动登录功能（记住我）
+□ 实现登出功能
+
+# Checkpoint 7.3: 认证流程集成
+□ 在API请求中添加token header
+□ 实现token过期自动刷新
+□ 处理认证失败（401/403）自动跳转登录
+□ 添加认证状态持久化
+□ 测试完整认证流程
+
+# Checkpoint 7.4: 邀请码管理（可选）
+□ 实现邀请码生成工具
+□ 添加邀请码有效期管理
+□ 实现邀请码使用次数限制
+□ 添加邀请码管理界面
+□ 记录邀请码使用日志
+```
+
+**核心实现**:
+```typescript
+// backend/src/middleware/auth.middleware.ts
+import jwt from 'jsonwebtoken';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const INVITE_CODES = (process.env.INVITE_CODES || '').split(',').filter(Boolean);
+const ACCESS_PASSWORD = process.env.ACCESS_PASSWORD;
+
+export function authenticate(req, res, next) {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+
+  if (!token) {
+    return res.status(401).json({
+      error: 'Unauthorized',
+      message: 'No authentication token provided'
+    });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (error) {
+    return res.status(401).json({
+      error: 'Unauthorized',
+      message: 'Invalid or expired token'
+    });
+  }
+}
+
+// 验证邀请码
+router.post('/auth/verify', (req, res) => {
+  const { inviteCode, password } = req.body;
+
+  let isValid = false;
+
+  // 检查邀请码
+  if (inviteCode && INVITE_CODES.includes(inviteCode)) {
+    isValid = true;
+  }
+
+  // 检查密码
+  if (password && ACCESS_PASSWORD && password === ACCESS_PASSWORD) {
+    isValid = true;
+  }
+
+  if (!isValid) {
+    return res.status(403).json({
+      error: 'Forbidden',
+      message: '邀请码或密码错误',
+    });
+  }
+
+  // 生成JWT token
+  const token = jwt.sign(
+    {
+      authenticated: true,
+      timestamp: Date.now(),
+    },
+    JWT_SECRET,
+    { expiresIn: '7d' }
+  );
+
+  res.json({
+    success: true,
+    token,
+    expiresIn: 7 * 24 * 60 * 60 * 1000, // 7 days in ms
+  });
+});
+```
+
+```typescript
+// frontend/src/components/AuthGate.tsx
+export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [inviteCode, setInviteCode] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    // 检查是否已有有效token
+    const token = localStorage.getItem('auth_token');
+    const expiry = localStorage.getItem('auth_expiry');
+
+    if (token && expiry && Date.now() < parseInt(expiry)) {
+      setIsAuthenticated(true);
+      // 设置axios默认header
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    }
+
+    setIsLoading(false);
+  }, []);
+
+  const handleAuth = async () => {
+    try {
+      const response = await api.post('/api/auth/verify', {
+        inviteCode,
+        password,
+      });
+
+      const { token, expiresIn } = response.data;
+
+      // 保存token
+      localStorage.setItem('auth_token', token);
+      localStorage.setItem('auth_expiry', (Date.now() + expiresIn).toString());
+
+      // 设置axios默认header
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+      setIsAuthenticated(true);
+    } catch (err) {
+      setError(err.response?.data?.message || '认证失败，请检查邀请码或密码');
+    }
+  };
+
+  if (isLoading) {
+    return <div>加载中...</div>;
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-lg shadow">
+          <div className="text-center">
+            <h2 className="text-3xl font-bold">道歉助手</h2>
+            <p className="mt-2 text-gray-600">请输入邀请码或密码访问</p>
+          </div>
+
+          <div className="space-y-4">
+            <input
+              type="text"
+              placeholder="邀请码"
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value)}
+              className="w-full px-4 py-2 border rounded-lg"
+            />
+            <p className="text-center text-gray-500">或</p>
+            <input
+              type="password"
+              placeholder="访问密码"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-2 border rounded-lg"
+            />
+
+            {error && (
+              <div className="text-red-600 text-sm">{error}</div>
+            )}
+
+            <button
+              onClick={handleAuth}
+              className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              进入应用
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+};
+```
+
+**环境变量配置**:
+```bash
+# .env
+JWT_SECRET=your-secret-key-change-in-production
+ACCESS_PASSWORD=your-strong-password
+INVITE_CODES=CODE123,CODE456,CODE789
+```
+
+**验收标准**:
+- [ ] 未认证用户无法访问应用
+- [ ] 邀请码验证正常工作
+- [ ] 密码验证正常工作
+- [ ] Token在有效期内保持登录状态
+- [ ] Token过期后自动要求重新认证
+- [ ] 登出功能正常
+- [ ] 认证失败有友好的错误提示
+
+**🔴 STOP & COMMIT**: `git commit -m "Phase 7: Access authentication system complete"`
+
+---
+
+### Phase 8: 企业级功能增强 [3-4小时]
+
+**目标**: 按照业界最佳实践，添加生产环境所需的关键特性
+
+**任务清单**:
+```bash
+# Checkpoint 8.1: 监控和告警
+□ 实现健康检查端点（详细版）
+□ 添加性能指标收集（API延迟、错误率）
+□ 实现错误告警机制（邮件/webhook）
+□ 添加资源使用监控（内存、CPU）
+□ 实现自定义metrics导出（Prometheus格式）
+
+# Checkpoint 8.2: 限流和防护
+□ 实现API限流（rate limiting）
+□ 添加IP黑白名单
+□ 实现请求去重（防止重复提交）
+□ 添加DDoS基础防护
+□ 实现优雅降级（LLM不可用时的fallback）
+
+# Checkpoint 8.3: 数据管理
+□ 实现会话数据导出功能
+□ 添加数据备份机制
+□ 实现用户数据清理（GDPR合规）
+□ 添加数据统计分析
+□ 实现审计日志
+
+# Checkpoint 8.4: 运维工具
+□ 创建管理员控制台
+□ 实现配置热更新（无需重启）
+□ 添加一键健康检查工具
+□ 实现日志查看器
+□ 创建部署检查清单
+```
+
+**验收标准**:
+- [ ] 监控系统能够及时发现问题
+- [ ] API限流正常工作，防止滥用
+- [ ] 数据导出和备份功能完善
+- [ ] 管理员工具易用且功能完整
+- [ ] 文档齐全，运维人员能快速上手
+
+**🔴 STOP & COMMIT**: `git commit -m "Phase 8: Enterprise features and best practices"`
+
+---
+
 ### 版本2.0规划
 1. **移动端支持** - 开发React Native版本
-2. **用户认证** - 添加完整的用户系统
+2. **用户系统** - 添加完整的多用户管理
 3. **云端存储** - 使用真实数据库替代localStorage
 4. **高级功能**:
    - 语音输入/输出
    - 图片表情支持
    - 社区分享功能
    - 数据分析看板
+5. **国际化** - 多语言支持
+6. **主题定制** - 暗色模式、自定义配色
 
 ### 技术债务
 - [ ] 添加完整的单元测试覆盖
@@ -707,6 +1179,8 @@ npm run test
 - [ ] 优化代码结构和可维护性
 - [ ] 添加性能监控
 - [ ] 实现CI/CD流程
+- [ ] 代码质量工具集成（SonarQube等）
+- [ ] 安全扫描和漏洞检测
 
 ---
 
