@@ -45,7 +45,11 @@ jobs:
         run: npm install -g vercel@latest
 
       - name: Install dependencies
-        run: npm run install:all
+        run: |
+          npm run install:all
+          echo "=== Checking frontend node_modules ==="
+          ls -la frontend/node_modules/.bin/ | head -20 || echo "No frontend node_modules/.bin"
+          which vite || echo "vite not in PATH"
 
       - name: Pull Vercel Project Settings
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
