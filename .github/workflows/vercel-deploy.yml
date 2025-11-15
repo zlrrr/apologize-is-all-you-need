@@ -47,8 +47,11 @@ jobs:
       - name: Install dependencies
         run: npm run install:all
 
-      - name: Pull Vercel Environment Information
-        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Link Vercel Project
+        run: |
+          # Link project using environment variables (non-interactive)
+          vercel link --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || \
+          echo "Project already linked or link not required"
 
       - name: Configure Vercel Environment Variables (Auto-sync from GitHub Secrets)
         run: |
@@ -62,9 +65,9 @@ jobs:
 
             if [ -n "$value" ]; then
               echo "Setting $key for $target environment..."
-              echo "$value" | vercel env add "$key" "$target" --token=${{ secrets.VERCEL_TOKEN }} --yes || \
-              echo "$value" | vercel env rm "$key" "$target" --token=${{ secrets.VERCEL_TOKEN }} --yes && \
-              echo "$value" | vercel env add "$key" "$target" --token=${{ secrets.VERCEL_TOKEN }} --yes
+              # Try to remove first (ignore if doesn't exist), then add
+              vercel env rm "$key" "$target" --token=${{ secrets.VERCEL_TOKEN }} 2>/dev/null || true
+              echo "$value" | vercel env add "$key" "$target" --token=${{ secrets.VERCEL_TOKEN }}
             fi
           }
 
