@@ -3,10 +3,6 @@
   "version": "0.1.0",
   "description": "Cross-platform apology application powered by AI",
   "private": true,
-  "workspaces": [
-    "frontend",
-    "backend"
-  ],
   "scripts": {
     "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
     "dev:frontend": "cd frontend && npm run dev",
