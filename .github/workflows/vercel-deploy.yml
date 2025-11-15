@@ -17,8 +17,6 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # Only run if secrets are configured
-    if: secrets.VERCEL_TOKEN != ''
 
     steps:
       - name: Checkout code
