@@ -319,7 +319,15 @@ For detailed deployment instructions, see [Deployment Guide](./docs/DEPLOYMENT.m
 3. Add environment variables (API keys)
 4. Deploy!
 
-For automated CI/CD with GitHub Actions, see the [Deployment Guide](./docs/DEPLOYMENT.md)
+### Automated CI/CD with GitHub Actions
+
+This repository includes a GitHub Actions workflow for automatic deployment. To enable it:
+
+1. Configure GitHub secrets (VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID)
+2. Set up environment variables in Vercel dashboard (LLM API keys)
+3. Push to main/master branch
+
+**Complete setup instructions:** [GitHub Actions Setup Guide](./docs/GITHUB_ACTIONS_SETUP.md)
 
 ## 🤝 Contributing
 
