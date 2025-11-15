@@ -8,31 +8,85 @@ import {
   OpenAIChatRequest,
   OpenAIChatResponse,
   ApologyStyle,
+  LLMProvider,
 } from '../types/index.js';
 import { getSystemPrompt, detectEmotion } from '../prompts/apology.prompts.js';
 
 export class LLMService {
   private client: AxiosInstance;
   private config: Required<LLMConfig>;
+  private provider: LLMProvider;
 
   constructor(config?: Partial<LLMConfig>) {
+    // Detect provider from environment or config
+    this.provider = (config?.provider || process.env.LLM_PROVIDER || 'lm-studio') as LLMProvider;
+
+    // Get provider-specific configuration
+    const providerConfig = this.getProviderConfig(this.provider);
+
     // Default configuration
     this.config = {
-      baseURL: config?.baseURL || process.env.LM_STUDIO_URL || 'http://127.0.0.1:1234',
-      model: config?.model || process.env.LLM_MODEL_NAME || 'local-model',
+      provider: this.provider,
+      baseURL: config?.baseURL || providerConfig.baseURL,
+      apiKey: config?.apiKey || providerConfig.apiKey,
+      model: config?.model || providerConfig.model,
       temperature: config?.temperature || parseFloat(process.env.LLM_TEMPERATURE || '0.7'),
       maxTokens: config?.maxTokens || parseInt(process.env.LLM_MAX_TOKENS || '500'),
       timeout: config?.timeout || 30000,
     };
 
-    // Create axios instance for LM Studio API
+    // Create axios instance with provider-specific headers
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    // Add API key to headers based on provider
+    if (this.config.apiKey) {
+      if (this.provider === 'anthropic') {
+        headers['x-api-key'] = this.config.apiKey;
+        headers['anthropic-version'] = '2023-06-01';
+      } else if (this.provider === 'openai' || this.provider === 'custom') {
+        headers['Authorization'] = `Bearer ${this.config.apiKey}`;
+      }
+    }
+
     this.client = axios.create({
       baseURL: this.config.baseURL,
       timeout: this.config.timeout,
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
     });
+  }
+
+  /**
+   * Get provider-specific configuration from environment variables
+   */
+  private getProviderConfig(provider: LLMProvider): Partial<LLMConfig> {
+    switch (provider) {
+      case 'openai':
+        return {
+          baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
+          apiKey: process.env.OPENAI_API_KEY,
+          model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+        };
+      case 'anthropic':
+        return {
+          baseURL: process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com/v1',
+          apiKey: process.env.ANTHROPIC_API_KEY,
+          model: process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022',
+        };
+      case 'custom':
+        return {
+          baseURL: process.env.CUSTOM_BASE_URL,
+          apiKey: process.env.CUSTOM_API_KEY,
+          model: process.env.CUSTOM_MODEL || 'custom-model',
+        };
+      case 'lm-studio':
+      default:
+        return {
+          baseURL: process.env.LM_STUDIO_URL || 'http://127.0.0.1:1234',
+          model: process.env.LLM_MODEL_NAME || 'local-model',
+        };
+    }
   }
 
   /**
@@ -77,45 +131,127 @@ export class LLMService {
   }
 
   /**
-   * Send a chat completion request to LM Studio
+   * Send a chat completion request to the LLM provider
    */
   async chatCompletion(request: OpenAIChatRequest): Promise<OpenAIChatResponse> {
     try {
-      const response = await this.client.post<OpenAIChatResponse>(
-        '/v1/chat/completions',
-        {
-          model: this.config.model,
-          ...request,
-        }
-      );
-
-      return response.data;
+      if (this.provider === 'anthropic') {
+        return await this.anthropicChatCompletion(request);
+      } else {
+        // OpenAI-compatible API (OpenAI, LM Studio, Custom)
+        return await this.openAIChatCompletion(request);
+      }
     } catch (error) {
       throw this.handleError(error);
     }
   }
 
   /**
-   * Check if LM Studio is available
+   * OpenAI-compatible chat completion (OpenAI, LM Studio, Custom providers)
+   */
+  private async openAIChatCompletion(request: OpenAIChatRequest): Promise<OpenAIChatResponse> {
+    const response = await this.client.post<OpenAIChatResponse>(
+      '/v1/chat/completions',
+      {
+        model: this.config.model,
+        ...request,
+      }
+    );
+
+    return response.data;
+  }
+
+  /**
+   * Anthropic-specific chat completion
+   */
+  private async anthropicChatCompletion(request: OpenAIChatRequest): Promise<OpenAIChatResponse> {
+    // Extract system message from messages
+    const systemMessage = request.messages.find(m => m.role === 'system');
+    const conversationMessages = request.messages.filter(m => m.role !== 'system');
+
+    // Convert to Anthropic format
+    const anthropicRequest = {
+      model: this.config.model,
+      max_tokens: request.max_tokens || this.config.maxTokens,
+      temperature: request.temperature,
+      system: systemMessage?.content,
+      messages: conversationMessages,
+    };
+
+    const response = await this.client.post('/messages', anthropicRequest);
+
+    // Convert Anthropic response to OpenAI format
+    const anthropicData = response.data;
+    return {
+      id: anthropicData.id,
+      object: 'chat.completion',
+      created: Date.now(),
+      model: anthropicData.model,
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: 'assistant',
+            content: anthropicData.content[0].text,
+          },
+          finish_reason: anthropicData.stop_reason || 'stop',
+        },
+      ],
+      usage: {
+        prompt_tokens: anthropicData.usage.input_tokens,
+        completion_tokens: anthropicData.usage.output_tokens,
+        total_tokens: anthropicData.usage.input_tokens + anthropicData.usage.output_tokens,
+      },
+    };
+  }
+
+  /**
+   * Check if LLM provider is available
    */
   async healthCheck(): Promise<boolean> {
     try {
-      const response = await this.client.get('/v1/models', {
-        timeout: 5000,
-      });
-      return response.status === 200;
+      if (this.provider === 'anthropic') {
+        // For Anthropic, try a minimal request
+        const response = await this.client.post('/messages', {
+          model: this.config.model,
+          max_tokens: 1,
+          messages: [{ role: 'user', content: 'Hi' }],
+        });
+        return response.status === 200;
+      } else {
+        // For OpenAI-compatible APIs
+        const response = await this.client.get('/v1/models', {
+          timeout: 5000,
+        });
+        return response.status === 200;
+      }
     } catch (error) {
       return false;
     }
   }
 
   /**
-   * Get available models from LM Studio
+   * Get available models from provider
    */
   async getModels(): Promise<any> {
     try {
-      const response = await this.client.get('/v1/models');
-      return response.data;
+      if (this.provider === 'anthropic') {
+        // Anthropic doesn't have a models endpoint, return configured model
+        return {
+          data: [
+            {
+              id: this.config.model,
+              object: 'model',
+              created: Date.now(),
+              owned_by: 'anthropic',
+            },
+          ],
+        };
+      } else {
+        // OpenAI-compatible APIs
+        const response = await this.client.get('/v1/models');
+        return response.data;
+      }
     } catch (error) {
       throw this.handleError(error);
     }
@@ -195,14 +331,31 @@ export class LLMService {
   updateConfig(config: Partial<LLMConfig>): void {
     this.config = { ...this.config, ...config };
 
-    // Recreate axios instance if baseURL changed
-    if (config.baseURL) {
+    // Update provider if changed
+    if (config.provider) {
+      this.provider = config.provider;
+    }
+
+    // Recreate axios instance if baseURL, apiKey, or provider changed
+    if (config.baseURL || config.apiKey || config.provider) {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+
+      // Add API key to headers based on provider
+      if (this.config.apiKey) {
+        if (this.provider === 'anthropic') {
+          headers['x-api-key'] = this.config.apiKey;
+          headers['anthropic-version'] = '2023-06-01';
+        } else if (this.provider === 'openai' || this.provider === 'custom') {
+          headers['Authorization'] = `Bearer ${this.config.apiKey}`;
+        }
+      }
+
       this.client = axios.create({
         baseURL: this.config.baseURL,
         timeout: this.config.timeout,
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
       });
     }
   }

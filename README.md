@@ -43,7 +43,9 @@ Current Version: v0.1.0
 
 ## ✨ Features
 
-- ✅ **Local LLM Integration** - Supports LM Studio (OpenAI-compatible API)
+- ✅ **Multiple LLM Provider Support** - OpenAI, Anthropic Claude, LM Studio, or custom APIs
+- ✅ **Flexible API Key Configuration** - Easy setup with your own LLM API keys
+- ✅ **One-Click Deployment** - Deploy to Vercel with automated CI/CD
 - ✅ **Real-time Chat Interface** - Responsive chat UI with animations
 - ✅ **Multiple Apology Styles** - Gentle / Formal / Empathetic
 - ✅ **Multi-Session Management** - Create, switch, and delete sessions
@@ -92,11 +94,41 @@ npm run dev
 
 For detailed instructions, see [Quick Start Guide](./docs/QUICK_START.md)
 
+### LLM Provider Configuration
+
+Configure your preferred LLM provider in `.env` file:
+
+**For OpenAI:**
+```bash
+LLM_PROVIDER=openai
+OPENAI_API_KEY=your-api-key-here
+OPENAI_MODEL=gpt-4o-mini
+```
+
+**For Anthropic Claude:**
+```bash
+LLM_PROVIDER=anthropic
+ANTHROPIC_API_KEY=your-api-key-here
+ANTHROPIC_MODEL=claude-3-5-sonnet-20241022
+```
+
+**For LM Studio (Local):**
+```bash
+LLM_PROVIDER=lm-studio
+LM_STUDIO_URL=http://127.0.0.1:1234
+```
+
+See [.env.example](./.env.example) for all configuration options.
+
 ## 💻 Requirements
 
 - **Node.js** >= 18.0.0
 - **npm** >= 9.0.0
-- **LM Studio** (optional, can use Mock server)
+- **LLM Provider** (choose one):
+  - OpenAI API key
+  - Anthropic API key
+  - LM Studio (local, free)
+  - Any OpenAI-compatible API
 
 ## 🛠️ Tech Stack
 
@@ -269,6 +301,25 @@ lsof -ti:1234 | xargs kill -9  # LM Studio
 ```
 
 More troubleshooting tips: [Quick Start Guide](./docs/QUICK_START.md)
+
+## 🚀 Deployment
+
+Deploy your own instance to Vercel:
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/turtacn/apologize-is-all-you-need)
+
+**Important**: After deployment, configure your LLM provider API keys in Vercel environment variables.
+
+For detailed deployment instructions, see [Deployment Guide](./docs/DEPLOYMENT.md)
+
+### Quick Deploy Steps
+
+1. Click the "Deploy with Vercel" button above
+2. Import the repository to your Vercel account
+3. Add environment variables (API keys)
+4. Deploy!
+
+For automated CI/CD with GitHub Actions, see the [Deployment Guide](./docs/DEPLOYMENT.md)
 
 ## 🤝 Contributing
 

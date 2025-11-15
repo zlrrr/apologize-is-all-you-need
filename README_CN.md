@@ -14,7 +14,9 @@
 
 ## 功能特性
 
-- ✅ **本地LLM集成** - 支持 LM Studio (OpenAI兼容API)
+- ✅ **多种LLM提供商支持** - OpenAI、Anthropic Claude、LM Studio 或自定义API
+- ✅ **灵活的API密钥配置** - 轻松配置您自己的LLM API密钥
+- ✅ **一键部署** - 通过Vercel自动化CI/CD部署
 - ✅ **实时对话界面** - 响应式聊天UI
 - ✅ **多种道歉风格** - 温和/正式/共情三种风格
 - ✅ **多会话管理** - 创建、切换、删除会话
@@ -22,6 +24,7 @@
 - ✅ **情绪识别** - 自动检测用户情绪
 - ✅ **完整的错误处理** - 友好的错误提示
 - ✅ **Mock服务器** - 无需真实LLM即可测试
+- ✅ **可爱的道歉动画** - 日式鞠躬角色
 
 ## 快速开始
 
@@ -62,11 +65,41 @@ npm run dev
 
 详细步骤请查看 [快速开始指南](./docs/QUICK_START.md)
 
+### LLM提供商配置
+
+在 `.env` 文件中配置您喜欢的LLM提供商：
+
+**使用 OpenAI:**
+```bash
+LLM_PROVIDER=openai
+OPENAI_API_KEY=your-api-key-here
+OPENAI_MODEL=gpt-4o-mini
+```
+
+**使用 Anthropic Claude:**
+```bash
+LLM_PROVIDER=anthropic
+ANTHROPIC_API_KEY=your-api-key-here
+ANTHROPIC_MODEL=claude-3-5-sonnet-20241022
+```
+
+**使用 LM Studio (本地):**
+```bash
+LLM_PROVIDER=lm-studio
+LM_STUDIO_URL=http://127.0.0.1:1234
+```
+
+查看 [.env.example](./.env.example) 了解所有配置选项。
+
 ## 环境要求
 
 - **Node.js** >= 18.0.0
 - **npm** >= 9.0.0
-- **LM Studio** (可选，可使用Mock服务器)
+- **LLM提供商** (选择一个):
+  - OpenAI API密钥
+  - Anthropic API密钥
+  - LM Studio (本地, 免费)
+  - 任何OpenAI兼容的API
 
 ## 技术栈
 
@@ -219,6 +252,25 @@ BACKEND_PORT=5001  # 修改为其他端口
 ```
 
 更多问题请查看 [快速开始指南](./docs/QUICK_START.md)
+
+## 🚀 部署
+
+部署您自己的实例到Vercel：
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/turtacn/apologize-is-all-you-need)
+
+**重要**: 部署后，请在Vercel环境变量中配置您的LLM提供商API密钥。
+
+详细部署说明请查看 [部署指南](./docs/DEPLOYMENT.md)
+
+### 快速部署步骤
+
+1. 点击上方 "Deploy with Vercel" 按钮
+2. 将仓库导入到您的Vercel账户
+3. 添加环境变量（API密钥）
+4. 部署完成！
+
+关于GitHub Actions自动化CI/CD，请查看 [部署指南](./docs/DEPLOYMENT.md)
 
 ## 贡献
 
