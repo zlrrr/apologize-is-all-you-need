@@ -8,7 +8,7 @@ services:
     runtime: node
     plan: free  # 免费计划
     region: oregon  # 可选: oregon, frankfurt, singapore
-    buildCommand: cd backend && npm install && npm run build
+    buildCommand: cd backend && npm install --include=dev && npm run build
     startCommand: cd backend && npm start
     healthCheckPath: /api/health
     envVars:
@@ -41,7 +41,7 @@ services:
         sync: false  # 可选
     # 自动部署设置
     autoDeploy: true
-    branch: main  # 监听main分支的push
+    branch: claude/add-plan-features-01KZ8uzJP67EWunQhRsC7EFL  # 监听当前开发分支
     # 健康检查
     healthCheck:
       path: /api/health
