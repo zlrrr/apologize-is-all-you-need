@@ -14,7 +14,7 @@
 
 ## 功能特性
 
-- ✅ **多种LLM提供商支持** - OpenAI、Anthropic Claude、LM Studio 或自定义API
+- ✅ **多种LLM提供商支持** - OpenAI、Anthropic Claude、Google Gemini、LM Studio 或自定义API
 - ✅ **灵活的API密钥配置** - 轻松配置您自己的LLM API密钥
 - ✅ **一键部署** - 通过Vercel自动化CI/CD部署
 - ✅ **实时对话界面** - 响应式聊天UI
@@ -83,6 +83,13 @@ ANTHROPIC_API_KEY=your-api-key-here
 ANTHROPIC_MODEL=claude-3-5-sonnet-20241022
 ```
 
+**使用 Google Gemini:**
+```bash
+LLM_PROVIDER=gemini
+GEMINI_API_KEY=your-gemini-api-key-here
+GEMINI_MODEL=gemini-1.5-flash
+```
+
 **使用 LM Studio (本地):**
 ```bash
 LLM_PROVIDER=lm-studio
@@ -98,6 +105,7 @@ LM_STUDIO_URL=http://127.0.0.1:1234
 - **LLM提供商** (选择一个):
   - OpenAI API密钥
   - Anthropic API密钥
+  - Google Gemini API密钥
   - LM Studio (本地, 免费)
   - 任何OpenAI兼容的API
 
@@ -270,7 +278,15 @@ BACKEND_PORT=5001  # 修改为其他端口
 3. 添加环境变量（API密钥）
 4. 部署完成！
 
-关于GitHub Actions自动化CI/CD，请查看 [部署指南](./docs/DEPLOYMENT.md)
+### 使用 GitHub Actions 自动化 CI/CD
+
+本仓库包含 GitHub Actions 工作流，可实现自动部署。启用步骤：
+
+1. 配置 GitHub secrets（VERCEL_TOKEN、VERCEL_ORG_ID、VERCEL_PROJECT_ID）
+2. 在 Vercel 控制台设置环境变量（LLM API 密钥）
+3. 推送到 main/master 分支
+
+**完整设置说明：** [GitHub Actions 设置指南](./docs/GITHUB_ACTIONS_SETUP.md)
 
 ## 贡献
 

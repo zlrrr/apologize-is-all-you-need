@@ -62,25 +62,32 @@ This guide covers deploying the Apologize Is All You Need application to product
 
 ### Option 3: Auto-deploy with GitHub Actions
 
-This repository includes a GitHub Actions workflow for automatic deployment.
+This repository includes a GitHub Actions workflow for automatic deployment on every push to main/master.
 
-1. **Set up Vercel project** (via dashboard or CLI first time)
+**⚠️ Important:** The workflow requires GitHub secrets to be configured before it will run.
 
-2. **Get your Vercel tokens:**
+#### Quick Setup
+
+For detailed step-by-step instructions, see **[GitHub Actions Setup Guide](./GITHUB_ACTIONS_SETUP.md)**.
+
+#### Summary
+
+1. **Install Vercel CLI:** `npm install -g vercel@latest`
+2. **Login to Vercel:** `vercel login`
+3. **Link your project:** `vercel link`
+4. **Get credentials:**
    ```bash
-   # Get your Vercel token from https://vercel.com/account/tokens
-   # Get your Org ID and Project ID:
-   vercel link
    cat .vercel/project.json
+   # Get your Vercel token from https://vercel.com/account/tokens
    ```
-
-3. **Add GitHub Secrets:**
-   Go to your GitHub repository → Settings → Secrets and add:
+5. **Add GitHub Secrets** (Settings → Secrets → Actions):
    - `VERCEL_TOKEN`: Your Vercel token
-   - `VERCEL_ORG_ID`: Your organization ID
-   - `VERCEL_PROJECT_ID`: Your project ID
+   - `VERCEL_ORG_ID`: From `.vercel/project.json`
+   - `VERCEL_PROJECT_ID`: From `.vercel/project.json`
+6. **Configure environment variables in Vercel dashboard** (your LLM API keys)
+7. **Push to main/master branch** - deployment will trigger automatically!
 
-4. **Push to main/master branch** - deployment will trigger automatically!
+**📖 For complete instructions:** See [GitHub Actions Setup Guide](./GITHUB_ACTIONS_SETUP.md)
 
 ## Environment Variables
 

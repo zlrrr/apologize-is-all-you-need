@@ -48,6 +48,7 @@ export class LLMService {
       } else if (this.provider === 'openai' || this.provider === 'custom') {
         headers['Authorization'] = `Bearer ${this.config.apiKey}`;
       }
+      // Note: Gemini uses API key as query parameter, not in headers
     }
 
     this.client = axios.create({
@@ -73,6 +74,12 @@ export class LLMService {
           baseURL: process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com/v1',
           apiKey: process.env.ANTHROPIC_API_KEY,
           model: process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022',
+        };
+      case 'gemini':
+        return {
+          baseURL: process.env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta',
+          apiKey: process.env.GEMINI_API_KEY,
+          model: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
         };
       case 'custom':
         return {
@@ -137,6 +144,8 @@ export class LLMService {
     try {
       if (this.provider === 'anthropic') {
         return await this.anthropicChatCompletion(request);
+      } else if (this.provider === 'gemini') {
+        return await this.geminiChatCompletion(request);
       } else {
         // OpenAI-compatible API (OpenAI, LM Studio, Custom)
         return await this.openAIChatCompletion(request);
@@ -201,6 +210,65 @@ export class LLMService {
         prompt_tokens: anthropicData.usage.input_tokens,
         completion_tokens: anthropicData.usage.output_tokens,
         total_tokens: anthropicData.usage.input_tokens + anthropicData.usage.output_tokens,
+      },
+    };
+  }
+
+  /**
+   * Google Gemini-specific chat completion
+   */
+  private async geminiChatCompletion(request: OpenAIChatRequest): Promise<OpenAIChatResponse> {
+    // Combine all messages into a single conversation history for Gemini
+    const systemMessage = request.messages.find(m => m.role === 'system');
+    const conversationMessages = request.messages.filter(m => m.role !== 'system');
+
+    // Convert to Gemini format
+    const contents = conversationMessages.map(msg => ({
+      role: msg.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: msg.content }],
+    }));
+
+    // Prepend system message to first user message if exists
+    if (systemMessage && contents.length > 0 && contents[0].role === 'user') {
+      contents[0].parts[0].text = `${systemMessage.content}\n\n${contents[0].parts[0].text}`;
+    }
+
+    const geminiRequest = {
+      contents,
+      generationConfig: {
+        temperature: request.temperature || this.config.temperature,
+        maxOutputTokens: request.max_tokens || this.config.maxTokens,
+      },
+    };
+
+    // Gemini uses API key as query parameter
+    const url = `/models/${this.config.model}:generateContent?key=${this.config.apiKey}`;
+    const response = await this.client.post(url, geminiRequest);
+
+    // Convert Gemini response to OpenAI format
+    const geminiData = response.data;
+    const candidate = geminiData.candidates?.[0];
+    const text = candidate?.content?.parts?.[0]?.text || '';
+
+    return {
+      id: `gemini-${Date.now()}`,
+      object: 'chat.completion',
+      created: Date.now(),
+      model: this.config.model || 'gemini-1.5-flash',
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: 'assistant',
+            content: text,
+          },
+          finish_reason: candidate?.finishReason?.toLowerCase() || 'stop',
+        },
+      ],
+      usage: {
+        prompt_tokens: geminiData.usageMetadata?.promptTokenCount || 0,
+        completion_tokens: geminiData.usageMetadata?.candidatesTokenCount || 0,
+        total_tokens: geminiData.usageMetadata?.totalTokenCount || 0,
       },
     };
   }

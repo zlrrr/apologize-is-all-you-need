@@ -24,7 +24,7 @@ export interface ApologyResponse {
 }
 
 // LLM Provider types
-export type LLMProvider = 'lm-studio' | 'openai' | 'anthropic' | 'custom';
+export type LLMProvider = 'lm-studio' | 'openai' | 'anthropic' | 'gemini' | 'custom';
 
 // LLM service configuration
 export interface LLMConfig {

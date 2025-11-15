@@ -43,7 +43,7 @@ Current Version: v0.1.0
 
 ## ✨ Features
 
-- ✅ **Multiple LLM Provider Support** - OpenAI, Anthropic Claude, LM Studio, or custom APIs
+- ✅ **Multiple LLM Provider Support** - OpenAI, Anthropic Claude, Google Gemini, LM Studio, or custom APIs
 - ✅ **Flexible API Key Configuration** - Easy setup with your own LLM API keys
 - ✅ **One-Click Deployment** - Deploy to Vercel with automated CI/CD
 - ✅ **Real-time Chat Interface** - Responsive chat UI with animations
@@ -112,6 +112,13 @@ ANTHROPIC_API_KEY=your-api-key-here
 ANTHROPIC_MODEL=claude-3-5-sonnet-20241022
 ```
 
+**For Google Gemini:**
+```bash
+LLM_PROVIDER=gemini
+GEMINI_API_KEY=your-gemini-api-key-here
+GEMINI_MODEL=gemini-1.5-flash
+```
+
 **For LM Studio (Local):**
 ```bash
 LLM_PROVIDER=lm-studio
@@ -127,6 +134,7 @@ See [.env.example](./.env.example) for all configuration options.
 - **LLM Provider** (choose one):
   - OpenAI API key
   - Anthropic API key
+  - Google Gemini API key
   - LM Studio (local, free)
   - Any OpenAI-compatible API
 
@@ -319,7 +327,15 @@ For detailed deployment instructions, see [Deployment Guide](./docs/DEPLOYMENT.m
 3. Add environment variables (API keys)
 4. Deploy!
 
-For automated CI/CD with GitHub Actions, see the [Deployment Guide](./docs/DEPLOYMENT.md)
+### Automated CI/CD with GitHub Actions
+
+This repository includes a GitHub Actions workflow for automatic deployment. To enable it:
+
+1. Configure GitHub secrets (VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID)
+2. Set up environment variables in Vercel dashboard (LLM API keys)
+3. Push to main/master branch
+
+**Complete setup instructions:** [GitHub Actions Setup Guide](./docs/GITHUB_ACTIONS_SETUP.md)
 
 ## 🤝 Contributing
 

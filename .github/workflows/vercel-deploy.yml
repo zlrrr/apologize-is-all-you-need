@@ -10,6 +10,11 @@ on:
       - main
       - master
 
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
   VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -22,20 +27,124 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Check required secrets
+        run: |
+          if [ -z "${{ secrets.VERCEL_TOKEN }}" ]; then
+            echo "❌ Error: VERCEL_TOKEN secret is not set"
+            echo "Please configure the following secrets in your GitHub repository:"
+            echo "  - VERCEL_TOKEN (required)"
+            echo "  - VERCEL_ORG_ID (required)"
+            echo "  - VERCEL_PROJECT_ID (required)"
+            echo ""
+            echo "See docs/DEPLOYMENT.md for setup instructions"
+            exit 1
+          fi
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm'
 
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
 
       - name: Install dependencies
-        run: npm run install:all
+        run: |
+          echo "=== Installing frontend dependencies ==="
+          cd frontend
+          npm install --legacy-peer-deps
+          echo "=== Verifying vite installation ==="
+          ls -la node_modules/.bin/vite || echo "vite not found"
+          npm ls vite || true
+          cd ..
 
-      - name: Pull Vercel Environment Information
+      - name: Pull Vercel Project Settings
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Configure Vercel Environment Variables (Auto-sync from GitHub Secrets)
+        run: |
+          echo "🔧 Syncing environment variables to Vercel..."
+
+          # Function to set or update environment variable
+          set_env_var() {
+            local key=$1
+            local value=$2
+            local target=$3
+
+            if [ -n "$value" ]; then
+              echo "Configuring $key for $target environment..."
+              # Try to add, capture output to check if already exists
+              output=$(echo "$value" | vercel env add "$key" "$target" --token=${{ secrets.VERCEL_TOKEN }} 2>&1) || true
+              if echo "$output" | grep -q "already exists"; then
+                echo "  ℹ️  $key already configured, skipping..."
+              elif echo "$output" | grep -q "Error"; then
+                echo "  ⚠️  Warning: $output"
+              else
+                echo "  ✅ $key configured successfully"
+              fi
+            fi
+          }
+
+          # Set LLM Provider configuration
+          if [ -n "${{ secrets.LLM_PROVIDER }}" ]; then
+            set_env_var "LLM_PROVIDER" "${{ secrets.LLM_PROVIDER }}" "production"
+            set_env_var "LLM_PROVIDER" "${{ secrets.LLM_PROVIDER }}" "preview"
+          fi
+
+          # Set Gemini configuration
+          if [ -n "${{ secrets.GEMINI_API_KEY }}" ]; then
+            set_env_var "GEMINI_API_KEY" "${{ secrets.GEMINI_API_KEY }}" "production"
+            set_env_var "GEMINI_API_KEY" "${{ secrets.GEMINI_API_KEY }}" "preview"
+          fi
+
+          if [ -n "${{ secrets.GEMINI_MODEL }}" ]; then
+            set_env_var "GEMINI_MODEL" "${{ secrets.GEMINI_MODEL }}" "production"
+            set_env_var "GEMINI_MODEL" "${{ secrets.GEMINI_MODEL }}" "preview"
+          fi
+
+          # Set OpenAI configuration (if provided)
+          if [ -n "${{ secrets.OPENAI_API_KEY }}" ]; then
+            set_env_var "OPENAI_API_KEY" "${{ secrets.OPENAI_API_KEY }}" "production"
+            set_env_var "OPENAI_API_KEY" "${{ secrets.OPENAI_API_KEY }}" "preview"
+          fi
+
+          if [ -n "${{ secrets.OPENAI_MODEL }}" ]; then
+            set_env_var "OPENAI_MODEL" "${{ secrets.OPENAI_MODEL }}" "production"
+            set_env_var "OPENAI_MODEL" "${{ secrets.OPENAI_MODEL }}" "preview"
+          fi
+
+          # Set Anthropic configuration (if provided)
+          if [ -n "${{ secrets.ANTHROPIC_API_KEY }}" ]; then
+            set_env_var "ANTHROPIC_API_KEY" "${{ secrets.ANTHROPIC_API_KEY }}" "production"
+            set_env_var "ANTHROPIC_API_KEY" "${{ secrets.ANTHROPIC_API_KEY }}" "preview"
+          fi
+
+          if [ -n "${{ secrets.ANTHROPIC_MODEL }}" ]; then
+            set_env_var "ANTHROPIC_MODEL" "${{ secrets.ANTHROPIC_MODEL }}" "production"
+            set_env_var "ANTHROPIC_MODEL" "${{ secrets.ANTHROPIC_MODEL }}" "preview"
+          fi
+
+          # Set optional LLM settings
+          if [ -n "${{ secrets.LLM_TEMPERATURE }}" ]; then
+            set_env_var "LLM_TEMPERATURE" "${{ secrets.LLM_TEMPERATURE }}" "production"
+            set_env_var "LLM_TEMPERATURE" "${{ secrets.LLM_TEMPERATURE }}" "preview"
+          fi
+
+          if [ -n "${{ secrets.LLM_MAX_TOKENS }}" ]; then
+            set_env_var "LLM_MAX_TOKENS" "${{ secrets.LLM_MAX_TOKENS }}" "production"
+            set_env_var "LLM_MAX_TOKENS" "${{ secrets.LLM_MAX_TOKENS }}" "preview"
+          fi
+
+          # Set NODE_ENV for production
+          set_env_var "NODE_ENV" "production" "production"
+
+          # Set Frontend API URL (if backend is deployed separately)
+          if [ -n "${{ secrets.VITE_API_URL }}" ]; then
+            set_env_var "VITE_API_URL" "${{ secrets.VITE_API_URL }}" "production"
+            set_env_var "VITE_API_URL" "${{ secrets.VITE_API_URL }}" "preview"
+          fi
+
+          echo "✅ Environment variables synced successfully!"
 
       - name: Build Project Artifacts
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
@@ -45,6 +154,7 @@ jobs:
         run: |
           url=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
           echo "url=$url" >> $GITHUB_OUTPUT
+          echo "🚀 Deployment URL: $url"
 
       - name: Comment PR with deployment URL
         if: github.event_name == 'pull_request'
