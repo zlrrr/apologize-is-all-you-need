@@ -58,6 +58,23 @@ app.get('/api/test', (req, res) => {
   });
 });
 
+// Root path handler (for Render health check and general info)
+app.get('/', (req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'apologize-backend',
+    version: '1.0.0',
+    timestamp: new Date().toISOString(),
+    endpoints: {
+      health: '/api/health',
+      healthDetailed: '/api/health/detailed',
+      healthLLM: '/api/health/llm',
+      chat: '/api/chat/message',
+      auth: '/api/auth/status'
+    }
+  });
+});
+
 // Error handling
 app.use(notFoundHandler);
 app.use(errorHandler);
