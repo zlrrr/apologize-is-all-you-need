@@ -23,9 +23,14 @@ export interface ApologyResponse {
   tokensUsed?: number;
 }
 
+// LLM Provider types
+export type LLMProvider = 'lm-studio' | 'openai' | 'anthropic' | 'custom';
+
 // LLM service configuration
 export interface LLMConfig {
-  baseURL: string;
+  provider?: LLMProvider;
+  baseURL?: string;
+  apiKey?: string;
   model?: string;
   temperature?: number;
   maxTokens?: number;
