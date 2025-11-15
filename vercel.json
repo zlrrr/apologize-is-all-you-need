@@ -2,9 +2,9 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
   "name": "apologize-is-all-you-need",
-  "buildCommand": "cd frontend && npm install && npx vite build && cd ..",
+  "buildCommand": "cd frontend && npx vite build",
   "outputDirectory": "frontend/dist",
-  "installCommand": "echo 'Skipping root install'",
+  "installCommand": "cd frontend && rm -rf node_modules package-lock.json && npm install",
   "framework": null,
   "rewrites": [
     {
