@@ -47,11 +47,8 @@ jobs:
       - name: Install dependencies
         run: npm run install:all
 
-      - name: Link Vercel Project
-        run: |
-          # Link project using environment variables (non-interactive)
-          vercel link --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || \
-          echo "Project already linked or link not required"
+      - name: Pull Vercel Project Settings
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Configure Vercel Environment Variables (Auto-sync from GitHub Secrets)
         run: |
