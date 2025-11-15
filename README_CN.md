@@ -14,7 +14,7 @@
 
 ## 功能特性
 
-- ✅ **多种LLM提供商支持** - OpenAI、Anthropic Claude、LM Studio 或自定义API
+- ✅ **多种LLM提供商支持** - OpenAI、Anthropic Claude、Google Gemini、LM Studio 或自定义API
 - ✅ **灵活的API密钥配置** - 轻松配置您自己的LLM API密钥
 - ✅ **一键部署** - 通过Vercel自动化CI/CD部署
 - ✅ **实时对话界面** - 响应式聊天UI
@@ -83,6 +83,13 @@ ANTHROPIC_API_KEY=your-api-key-here
 ANTHROPIC_MODEL=claude-3-5-sonnet-20241022
 ```
 
+**使用 Google Gemini:**
+```bash
+LLM_PROVIDER=gemini
+GEMINI_API_KEY=your-gemini-api-key-here
+GEMINI_MODEL=gemini-1.5-flash
+```
+
 **使用 LM Studio (本地):**
 ```bash
 LLM_PROVIDER=lm-studio
@@ -98,6 +105,7 @@ LM_STUDIO_URL=http://127.0.0.1:1234
 - **LLM提供商** (选择一个):
   - OpenAI API密钥
   - Anthropic API密钥
+  - Google Gemini API密钥
   - LM Studio (本地, 免费)
   - 任何OpenAI兼容的API
 
