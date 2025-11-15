@@ -4,7 +4,7 @@
   "name": "apologize-is-all-you-need",
   "buildCommand": "npm run build",
   "outputDirectory": "frontend/dist",
-  "installCommand": "npm run install:all",
+  "installCommand": "rm -rf node_modules frontend/node_modules backend/node_modules && npm run install:all",
   "framework": null,
   "rewrites": [
     {

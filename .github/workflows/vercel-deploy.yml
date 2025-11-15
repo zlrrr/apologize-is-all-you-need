@@ -46,6 +46,11 @@ jobs:
 
       - name: Install dependencies
         run: |
+          echo "=== Cleaning old installations ==="
+          rm -rf node_modules package-lock.json
+          rm -rf frontend/node_modules frontend/package-lock.json
+          rm -rf backend/node_modules backend/package-lock.json
+          echo "=== Installing fresh dependencies ==="
           npm run install:all
           echo "=== Checking frontend node_modules ==="
           ls -la frontend/node_modules/.bin/ | head -20 || echo "No frontend node_modules/.bin"
