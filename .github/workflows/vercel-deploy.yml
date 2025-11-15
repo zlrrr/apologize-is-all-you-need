@@ -10,6 +10,11 @@ on:
       - main
       - master
 
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
   VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -132,6 +137,12 @@ jobs:
 
           # Set NODE_ENV for production
           set_env_var "NODE_ENV" "production" "production"
+
+          # Set Frontend API URL (if backend is deployed separately)
+          if [ -n "${{ secrets.VITE_API_URL }}" ]; then
+            set_env_var "VITE_API_URL" "${{ secrets.VITE_API_URL }}" "production"
+            set_env_var "VITE_API_URL" "${{ secrets.VITE_API_URL }}" "preview"
+          fi
 
           echo "✅ Environment variables synced successfully!"
 
