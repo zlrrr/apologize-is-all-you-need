@@ -4,6 +4,7 @@ import { MessageBubble } from './MessageBubble';
 import { InputBox } from './InputBox';
 import { SessionList, Session } from './SessionList';
 import { ApologyCharacter } from './ApologyCharacter';
+import { HealthIndicator } from './HealthIndicator';
 import { sendMessage as sendMessageApi } from '../services/api';
 import {
   getSessions,
@@ -17,6 +18,7 @@ import {
   generateSessionName,
   StoredSession,
 } from '../utils/storage';
+import logger from '../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
 
 export const ChatInterface: React.FC = () => {
@@ -101,6 +103,8 @@ export const ChatInterface: React.FC = () => {
   const handleSendMessage = async (content: string) => {
     if (!content.trim()) return;
 
+    logger.logUserAction('Send message', { messageLength: content.length, style });
+
     setIsLoading(true);
     setError(null);
 
@@ -109,6 +113,7 @@ export const ChatInterface: React.FC = () => {
     if (!sessionId) {
       setSessionId(currentSessionId);
       setActiveSessionId(currentSessionId);
+      logger.info('Created new session', { sessionId: currentSessionId });
     }
 
     // Add user message to UI immediately
@@ -127,6 +132,11 @@ export const ChatInterface: React.FC = () => {
         sessionId: currentSessionId,
       });
 
+      logger.info('Message sent successfully', {
+        sessionId: currentSessionId,
+        tokensUsed: response.tokensUsed,
+      });
+
       // Add assistant message
       const assistantMessage: Message = {
         role: 'assistant',
@@ -135,8 +145,9 @@ export const ChatInterface: React.FC = () => {
       };
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (err: any) {
-      setError(err.message || 'Failed to send message');
-      console.error('Failed to send message:', err);
+      const errorMessage = err.message || 'Failed to send message';
+      setError(errorMessage);
+      logger.error('Failed to send message', logger.getErrorDetails(err));
 
       // Remove user message on error
       setMessages((prev) => prev.slice(0, -1));
@@ -176,6 +187,9 @@ export const ChatInterface: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-4">
+            {/* Health indicator */}
+            <HealthIndicator />
+
             {/* Session list */}
             <SessionList
               sessions={sessions}
