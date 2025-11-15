@@ -61,10 +61,16 @@ jobs:
             local target=$3
 
             if [ -n "$value" ]; then
-              echo "Setting $key for $target environment..."
-              # Try to remove first (ignore if doesn't exist), then add
-              vercel env rm "$key" "$target" --token=${{ secrets.VERCEL_TOKEN }} 2>/dev/null || true
-              echo "$value" | vercel env add "$key" "$target" --token=${{ secrets.VERCEL_TOKEN }}
+              echo "Configuring $key for $target environment..."
+              # Try to add, capture output to check if already exists
+              output=$(echo "$value" | vercel env add "$key" "$target" --token=${{ secrets.VERCEL_TOKEN }} 2>&1) || true
+              if echo "$output" | grep -q "already exists"; then
+                echo "  ℹ️  $key already configured, skipping..."
+              elif echo "$output" | grep -q "Error"; then
+                echo "  ⚠️  Warning: $output"
+              else
+                echo "  ✅ $key configured successfully"
+              fi
             fi
           }
 
