@@ -13,10 +13,11 @@ on:
           - production
           - staging
 
-  # 推送到main分支时自动触发
+  # 推送到main或开发分支时自动触发
   push:
     branches:
       - main
+      - claude/add-plan-features-01KZ8uzJP67EWunQhRsC7EFL
     paths:
       - 'backend/**'
       - 'render.yaml'
