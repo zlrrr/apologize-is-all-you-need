@@ -1161,9 +1161,9 @@ INVITE_CODES=CODE123,CODE456,CODE789
 
 ---
 
-### Phase 9: Bug修复与用户认证系统 [4-6小时]
+### Phase 9: Bug修复、国际化与用户认证系统 [5-8小时]
 
-**目标**: 修复已知问题,实现多用户认证和数据隔离系统
+**目标**: 修复已知问题,实现国际化支持,构建多用户认证和数据隔离系统
 
 **任务清单**:
 ```bash
@@ -1220,6 +1220,16 @@ INVITE_CODES=CODE123,CODE456,CODE789
 □ 测试数据隔离(用户A看不到用户B的数据)
 □ 测试管理员功能(可查看所有数据)
 □ 编写认证系统使用文档
+
+# Checkpoint 9.8: 国际化(i18n)支持
+□ 集成react-i18next国际化框架
+□ 创建语言资源文件(en.json/zh.json)
+□ 提取所有界面文本为可翻译资源
+□ 实现语言切换组件(LanguageSwitcher)
+□ 设置默认语言为英语
+□ 更新页面标题(英文:"Apologize Is All You Need", 中文:"道歉助手")
+□ 实现语言偏好持久化(localStorage)
+□ 测试所有页面的双语切换
 ```
 
 **核心实现要点**:
@@ -1534,6 +1544,225 @@ function App() {
 }
 ```
 
+**10. 国际化(i18n)实现**:
+
+```bash
+# 安装依赖
+npm install react-i18next i18next i18next-browser-languagedetector
+```
+
+```typescript
+// frontend/src/i18n/config.ts
+import i18n from 'i18next';
+import { initReactI18next } from 'react-i18next';
+import LanguageDetector from 'i18next-browser-languagedetector';
+
+import en from './locales/en.json';
+import zh from './locales/zh.json';
+
+i18n
+  .use(LanguageDetector)
+  .use(initReactI18next)
+  .init({
+    resources: {
+      en: { translation: en },
+      zh: { translation: zh }
+    },
+    fallbackLng: 'en', // 默认语言设置为英语
+    lng: 'en', // 强制初始语言为英语
+    interpolation: {
+      escapeValue: false
+    },
+    detection: {
+      order: ['localStorage', 'navigator'],
+      caches: ['localStorage']
+    }
+  });
+
+export default i18n;
+```
+
+```json
+// frontend/src/i18n/locales/en.json
+{
+  "app": {
+    "title": "Apologize Is All You Need",
+    "subtitle": "Unlimited emotional value through AI"
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "logout": "Logout",
+    "username": "Username",
+    "password": "Password",
+    "noAccount": "Don't have an account? Register",
+    "hasAccount": "Already have an account? Login",
+    "loginFailed": "Login failed, please check your credentials"
+  },
+  "chat": {
+    "inputPlaceholder": "Type your message...",
+    "send": "Send",
+    "newSession": "New Session",
+    "clearHistory": "Clear History",
+    "sessionList": "Session List",
+    "confirmClear": "Are you sure you want to clear the chat history?",
+    "emptyState": "Start a new conversation"
+  },
+  "admin": {
+    "dashboard": "Admin Dashboard",
+    "users": "Users",
+    "allSessions": "All Sessions",
+    "statistics": "Statistics"
+  },
+  "settings": {
+    "language": "Language",
+    "theme": "Theme"
+  },
+  "common": {
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "loading": "Loading..."
+  }
+}
+```
+
+```json
+// frontend/src/i18n/locales/zh.json
+{
+  "app": {
+    "title": "道歉助手",
+    "subtitle": "AI提供无限情绪价值"
+  },
+  "auth": {
+    "login": "登录",
+    "register": "注册",
+    "logout": "登出",
+    "username": "用户名",
+    "password": "密码",
+    "noAccount": "没有账号?点击注册",
+    "hasAccount": "已有账号?点击登录",
+    "loginFailed": "登录失败,请检查用户名和密码"
+  },
+  "chat": {
+    "inputPlaceholder": "输入你的消息...",
+    "send": "发送",
+    "newSession": "新建会话",
+    "clearHistory": "清空历史",
+    "sessionList": "会话列表",
+    "confirmClear": "确定要清空聊天记录吗?",
+    "emptyState": "开始新的对话"
+  },
+  "admin": {
+    "dashboard": "管理员控制台",
+    "users": "用户管理",
+    "allSessions": "所有会话",
+    "statistics": "统计信息"
+  },
+  "settings": {
+    "language": "语言",
+    "theme": "主题"
+  },
+  "common": {
+    "confirm": "确认",
+    "cancel": "取消",
+    "save": "保存",
+    "delete": "删除",
+    "edit": "编辑",
+    "loading": "加载中..."
+  }
+}
+```
+
+```typescript
+// frontend/src/components/LanguageSwitcher.tsx
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+
+export const LanguageSwitcher: React.FC = () => {
+  const { i18n, t } = useTranslation();
+
+  const changeLanguage = (lng: string) => {
+    i18n.changeLanguage(lng);
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <label className="text-sm text-gray-600">{t('settings.language')}:</label>
+      <select
+        value={i18n.language}
+        onChange={(e) => changeLanguage(e.target.value)}
+        className="px-3 py-1 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+      >
+        <option value="en">English</option>
+        <option value="zh">中文</option>
+      </select>
+    </div>
+  );
+};
+```
+
+```typescript
+// frontend/src/main.tsx - 初始化i18n
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import './index.css';
+import './i18n/config'; // 导入i18n配置
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+```
+
+```typescript
+// 使用示例 - 在组件中使用翻译
+import { useTranslation } from 'react-i18next';
+
+export const LoginPage: React.FC = () => {
+  const { t } = useTranslation();
+
+  return (
+    <div>
+      <h2>{t('app.title')}</h2>
+      <input placeholder={t('auth.username')} />
+      <input placeholder={t('auth.password')} type="password" />
+      <button>{t('auth.login')}</button>
+      <p>{t('auth.noAccount')}</p>
+    </div>
+  );
+};
+```
+
+```typescript
+// 动态更新页面标题
+import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+
+export const usePageTitle = () => {
+  const { t, i18n } = useTranslation();
+
+  useEffect(() => {
+    document.title = t('app.title');
+  }, [i18n.language, t]);
+};
+
+// 在App.tsx中使用
+function App() {
+  usePageTitle(); // 自动根据语言更新页面标题
+
+  return (
+    <AuthProvider>
+      {/* ... */}
+    </AuthProvider>
+  );
+}
+```
+
 **安全最佳实践**:
 1. **密码要求**: 最少6位,建议包含数字和字母
 2. **Token存储**: 使用localStorage(MVP可接受),生产环境建议httpOnly cookie
@@ -1566,8 +1795,14 @@ Role: admin
 - [ ] 未登录用户自动跳转登录页
 - [ ] 普通用户无法访问管理员页面
 - [ ] 所有API都有权限保护
+- [ ] 页面默认显示英语界面
+- [ ] 页面标题正确显示(英文:"Apologize Is All You Need",中文:"道歉助手")
+- [ ] 语言切换功能正常工作
+- [ ] 切换语言后所有文本都正确翻译
+- [ ] 语言偏好保存在localStorage,刷新页面后保持
+- [ ] 所有页面都支持双语切换
 
-**🔴 STOP & COMMIT**: `git commit -m "Phase 9: Bug fixes and multi-user authentication system"`
+**🔴 STOP & COMMIT**: `git commit -m "Phase 9: Bug fixes, i18n support and multi-user authentication system"`
 
 ---
 
@@ -1580,7 +1815,7 @@ Role: admin
    - 图片表情支持
    - 社区分享功能
    - 数据分析看板
-5. **国际化** - 多语言支持
+5. **扩展国际化** - 支持更多语言(日语、韩语、西班牙语等)
 6. **主题定制** - 暗色模式、自定义配色
 
 ### 技术债务
@@ -1606,8 +1841,8 @@ Role: admin
 ---
 
 **最后更新**: 2025-11-16
-**当前状态**: Phase 9 - Bug修复与用户认证系统规划完成
-**下一个检查点**: Checkpoint 9.1 - UI问题修复
+**当前状态**: Phase 9 - Bug修复、国际化与用户认证系统规划完成
+**下一个检查点**: Checkpoint 9.1 - UI问题修复 或 Checkpoint 9.8 - 国际化支持
 
 ## Phase 9 实施优先级
 
@@ -1619,14 +1854,20 @@ Role: admin
    - 修复LLM服务状态显示
    - 添加按钮文字说明
 
+2. **Checkpoint 9.8**: 国际化(i18n)支持
+   - 集成react-i18next
+   - 默认语言设置为英语
+   - 实现语言切换功能
+   - 页面标题国际化
+
 ### P1 - 核心功能(用户认证基础)
-2. **Checkpoint 9.2**: 用户认证系统设计
-3. **Checkpoint 9.3**: 后端认证实现
-4. **Checkpoint 9.4**: 数据隔离实现
-5. **Checkpoint 9.5**: 前端认证界面
+3. **Checkpoint 9.2**: 用户认证系统设计
+4. **Checkpoint 9.3**: 后端认证实现
+5. **Checkpoint 9.4**: 数据隔离实现
+6. **Checkpoint 9.5**: 前端认证界面
 
 ### P2 - 增强功能(管理员功能)
-6. **Checkpoint 9.6**: 管理员功能实现
-7. **Checkpoint 9.7**: 初始数据和测试
+7. **Checkpoint 9.6**: 管理员功能实现
+8. **Checkpoint 9.7**: 初始数据和测试
 
-**建议**: 先完成P0级别的UI修复,立即提升用户体验,然后再逐步实现用户认证系统。
+**建议**: 先完成P0级别的UI修复和国际化支持,立即提升用户体验,然后再逐步实现用户认证系统。国际化功能可以与UI修复并行开发。
