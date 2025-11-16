@@ -101,12 +101,26 @@ export class LLMService {
    */
   async generateApology(params: ApologyRequest): Promise<ApologyResponse> {
     const startTime = Date.now();
+    const logger = (await import('../utils/logger.js')).default;
 
     try {
       const { message, style = 'gentle', history = [] } = params;
 
+      logger.info('[LLM-001] Starting apology generation', {
+        messageLength: message.length,
+        style,
+        historyLength: history.length,
+        provider: this.provider,
+        model: this.config.model,
+      });
+
       // Detect emotion from user message
       const detectedEmotion = params.emotion || detectEmotion(message);
+
+      logger.info('[LLM-002] Emotion detected', {
+        emotion: detectedEmotion,
+        messagePreview: message.substring(0, 50),
+      });
 
       // Build messages array
       const messages: ChatMessage[] = [
@@ -121,6 +135,15 @@ export class LLMService {
         },
       ];
 
+      logger.info('[LLM-003] Calling LLM API', {
+        provider: this.provider,
+        model: this.config.model,
+        baseURL: this.config.baseURL,
+        messagesCount: messages.length,
+        temperature: this.config.temperature,
+        maxTokens: this.config.maxTokens,
+      });
+
       // Call LLM API
       const response = await this.chatCompletion({
         messages,
@@ -129,6 +152,16 @@ export class LLMService {
       });
 
       const duration = Date.now() - startTime;
+
+      logger.info('[LLM-004] LLM API call successful', {
+        provider: this.provider,
+        model: this.config.model,
+        duration: `${duration}ms`,
+        promptTokens: response.usage.prompt_tokens,
+        completionTokens: response.usage.completion_tokens,
+        totalTokens: response.usage.total_tokens,
+        replyLength: response.choices[0].message.content.length,
+      });
 
       // Log successful LLM call
       const { logLLMCall } = await import('../utils/logger.js');
@@ -149,6 +182,17 @@ export class LLMService {
       };
     } catch (error) {
       const duration = Date.now() - startTime;
+
+      logger.error('[LLM-ERROR] Apology generation failed', {
+        provider: this.provider,
+        model: this.config.model,
+        baseURL: this.config.baseURL,
+        duration: `${duration}ms`,
+        errorName: error instanceof Error ? error.name : 'Unknown',
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorCode: (error as any).code,
+        errorStatus: (error as any).response?.status,
+      });
 
       // Log failed LLM call
       const { logLLMCall } = await import('../utils/logger.js');
