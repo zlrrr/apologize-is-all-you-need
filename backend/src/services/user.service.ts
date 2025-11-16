@@ -110,6 +110,15 @@ export class UserService {
         error,
         username: data.username,
       });
+
+      // Handle database constraint errors (e.g., concurrent registration attempts)
+      if (error && typeof error === 'object' && 'code' in error) {
+        const dbError = error as { code: string };
+        if (dbError.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+          throw new Error('Username already exists');
+        }
+      }
+
       throw error;
     }
   }

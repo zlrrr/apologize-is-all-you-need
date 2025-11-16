@@ -11,15 +11,9 @@ import {
   isAuthEnabled,
   JWTPayload,
 } from '../src/middleware/auth.middleware.js';
-import { UserService, SafeUser } from '../src/services/user.service.js';
-import { DatabaseService } from '../src/database/database.service.js';
-import fs from 'fs';
-import path from 'path';
+import { SafeUser } from '../src/services/user.service.js';
 
 describe('Auth Middleware', () => {
-  let dbService: DatabaseService;
-  let userService: UserService;
-  const testDbPath = path.join(process.cwd(), 'data', 'test-auth-middleware.db');
   const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
   // Test user data
@@ -29,15 +23,13 @@ describe('Auth Middleware', () => {
   let testAdminToken: string;
 
   beforeEach(async () => {
-    // Clean up test database
-    if (fs.existsSync(testDbPath)) {
-      fs.unlinkSync(testDbPath);
-    }
+    // Clean all user data except admin (use production database)
+    const db = (await import('../src/database/database.service.js')).db;
+    const userService = (await import('../src/services/user.service.js')).userService;
 
-    // Initialize test database
-    dbService = new DatabaseService(testDbPath);
-    await dbService.initialize();
-    userService = new UserService(dbService);
+    db.execute('DELETE FROM messages');
+    db.execute('DELETE FROM sessions');
+    db.execute('DELETE FROM users WHERE id != 1');
 
     // Create test users
     testUser = await userService.register({
@@ -59,19 +51,11 @@ describe('Auth Middleware', () => {
   });
 
   afterEach(async () => {
-    if (dbService && dbService.isInitialized()) {
-      dbService.close();
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    if (fs.existsSync(testDbPath)) {
-      try {
-        fs.unlinkSync(testDbPath);
-      } catch (error) {
-        console.warn('Could not delete test database:', error);
-      }
-    }
+    // Clean up test data
+    const db = (await import('../src/database/database.service.js')).db;
+    db.execute('DELETE FROM messages');
+    db.execute('DELETE FROM sessions');
+    db.execute('DELETE FROM users WHERE id != 1');
   });
 
   describe('generateToken', () => {
