@@ -80,15 +80,30 @@ router.post('/message', validateChatMessage, async (req: Request, res: Response,
 
     const duration = Date.now() - startTime;
 
-    // Return response
-    res.json({
+    // Prepare response data
+    const responseData = {
       sessionId,
       reply: response.reply,
       emotion: response.emotion,
       style: response.style,
       tokensUsed: response.tokensUsed,
       timestamp: new Date().toISOString(),
+    };
+
+    // Log response data being sent to frontend
+    logger.info('[CHAT-RESPONSE] Sending response to frontend', {
+      requestId,
+      sessionId,
+      replyLength: response.reply?.length || 0,
+      replyPreview: response.reply ? response.reply.substring(0, 100) : 'EMPTY',
+      replyFull: response.reply || 'EMPTY',
+      emotion: response.emotion,
+      style: response.style,
+      tokensUsed: response.tokensUsed,
     });
+
+    // Return response
+    res.json(responseData);
 
     logger.info('[CHAT-006] Chat request completed successfully', {
       requestId,

@@ -317,8 +317,35 @@ export class LLMService {
 
     // Convert Gemini response to OpenAI format
     const geminiData = response.data;
+
+    // Log raw Gemini response for debugging
+    const logger = (await import('../utils/logger.js')).default;
+    logger.info('[LLM-GEMINI-RAW] Raw Gemini API response', {
+      hasCandidates: !!geminiData.candidates,
+      candidatesCount: geminiData.candidates?.length || 0,
+      firstCandidate: geminiData.candidates?.[0] ? {
+        finishReason: geminiData.candidates[0].finishReason,
+        hasSafetyRatings: !!geminiData.candidates[0].safetyRatings,
+        safetyRatings: geminiData.candidates[0].safetyRatings,
+        hasContent: !!geminiData.candidates[0].content,
+        partsCount: geminiData.candidates[0].content?.parts?.length || 0,
+        textPreview: geminiData.candidates[0].content?.parts?.[0]?.text?.substring(0, 100) || 'NO_TEXT',
+      } : null,
+      usageMetadata: geminiData.usageMetadata,
+      promptFeedback: geminiData.promptFeedback,
+    });
+
     const candidate = geminiData.candidates?.[0];
     const text = candidate?.content?.parts?.[0]?.text || '';
+
+    // Check for safety blocks or other issues
+    if (!text && candidate) {
+      logger.warn('[LLM-GEMINI-EMPTY] Gemini returned empty content', {
+        finishReason: candidate.finishReason,
+        safetyRatings: candidate.safetyRatings,
+        promptFeedback: geminiData.promptFeedback,
+      });
+    }
 
     return {
       id: `gemini-${Date.now()}`,
