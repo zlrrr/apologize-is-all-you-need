@@ -1,0 +1,68 @@
+{
+  "app": {
+    "title": "道歉助手",
+    "subtitle": "AI提供无限情绪价值"
+  },
+  "header": {
+    "subtitle": "我会真诚地理解和支持你",
+    "connected": "已连接",
+    "disconnected": "未连接",
+    "checking": "检查中...",
+    "backendConnected": "后端服务已连接",
+    "backendDisconnected": "后端服务未连接"
+  },
+  "chat": {
+    "inputPlaceholder": "输入你的消息...",
+    "send": "发送",
+    "newSession": "新建会话",
+    "clearHistory": "清空历史",
+    "sessionList": "会话列表",
+    "confirmClear": "确定要清空当前会话的历史记录吗？",
+    "emptyStateGreeting": "👋 你好！",
+    "emptyStateSubtitle": "说说你的感受，我会认真倾听和理解",
+    "emptyStateHint": "点击右上角"会话列表"查看历史会话",
+    "styleLabel": "道歉风格",
+    "styleTooltip": "选择AI的道歉风格",
+    "clearTooltip": "清空当前会话的所有聊天记录",
+    "sessionListTooltip": "查看和管理所有会话历史记录",
+    "newSessionTooltip": "开始一个新的对话会话"
+  },
+  "styles": {
+    "gentle": "温和",
+    "formal": "正式",
+    "empathetic": "共情"
+  },
+  "session": {
+    "list": "会话列表",
+    "new": "新建会话",
+    "empty": "暂无会话",
+    "emptyHint": "点击上方按钮创建新会话",
+    "delete": "删除",
+    "confirmDelete": "确定要删除这个会话吗？",
+    "justNow": "刚刚",
+    "hoursAgo": "{{hours}}小时前",
+    "yesterday": "昨天",
+    "messages": "{{count}} 条消息"
+  },
+  "auth": {
+    "title": "道歉助手",
+    "subtitle": "请输入邀请码或密码访问",
+    "inviteCode": "邀请码",
+    "password": "访问密码",
+    "or": "或",
+    "enter": "进入应用",
+    "error": "认证失败，请检查邀请码或密码"
+  },
+  "common": {
+    "confirm": "确认",
+    "cancel": "取消",
+    "save": "保存",
+    "delete": "删除",
+    "edit": "编辑",
+    "loading": "加载中..."
+  },
+  "settings": {
+    "language": "语言",
+    "theme": "主题"
+  }
+}

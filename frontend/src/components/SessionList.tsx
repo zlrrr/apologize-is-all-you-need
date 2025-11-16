@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 export interface Session {
   id: string;
@@ -23,6 +24,7 @@ export const SessionList: React.FC<SessionListProps> = ({
   onNewSession,
   onDeleteSession,
 }) => {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
 
   const formatDate = (date: Date) => {
@@ -30,10 +32,10 @@ export const SessionList: React.FC<SessionListProps> = ({
     const diff = now.getTime() - date.getTime();
     const hours = Math.floor(diff / 1000 / 60 / 60);
 
-    if (hours < 1) return '刚刚';
-    if (hours < 24) return `${hours}小时前`;
-    if (hours < 48) return '昨天';
-    return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+    if (hours < 1) return t('session.justNow');
+    if (hours < 24) return t('session.hoursAgo', { hours });
+    if (hours < 48) return t('session.yesterday');
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   };
 
   return (
@@ -42,12 +44,12 @@ export const SessionList: React.FC<SessionListProps> = ({
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="px-4 py-1.5 text-sm rounded border border-blue-300 text-blue-700 hover:bg-blue-50 transition-colors flex items-center gap-2"
-        title="查看和管理所有会话历史记录"
+        title={t('chat.sessionListTooltip')}
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
         </svg>
-        会话列表
+        {t('session.list')}
         {sessions.length > 0 && (
           <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-0.5">
             {sessions.length}
@@ -68,19 +70,19 @@ export const SessionList: React.FC<SessionListProps> = ({
           <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-96 overflow-hidden flex flex-col">
             {/* Header */}
             <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="font-semibold text-gray-800">会话列表</h3>
+              <h3 className="font-semibold text-gray-800">{t('session.list')}</h3>
               <button
                 onClick={() => {
                   onNewSession();
                   setIsOpen(false);
                 }}
                 className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition-colors flex items-center gap-1.5"
-                title="开始一个新的对话会话"
+                title={t('chat.newSessionTooltip')}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                新建会话
+                {t('session.new')}
               </button>
             </div>
 
@@ -88,8 +90,8 @@ export const SessionList: React.FC<SessionListProps> = ({
             <div className="overflow-y-auto flex-1">
               {sessions.length === 0 ? (
                 <div className="p-8 text-center text-gray-500">
-                  <p className="text-sm">暂无会话</p>
-                  <p className="text-xs mt-1">点击上方按钮创建新会话</p>
+                  <p className="text-sm">{t('session.empty')}</p>
+                  <p className="text-xs mt-1">{t('session.emptyHint')}</p>
                 </div>
               ) : (
                 <div className="divide-y divide-gray-100">
@@ -118,7 +120,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                           <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
                             <span>{formatDate(session.updatedAt)}</span>
                             <span>•</span>
-                            <span>{session.messageCount} 条消息</span>
+                            <span>{t('session.messages', { count: session.messageCount })}</span>
                           </div>
                         </div>
 
@@ -126,7 +128,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (confirm('确定要删除这个会话吗？')) {
+                            if (confirm(t('session.confirmDelete'))) {
                               onDeleteSession(session.id);
                             }
                           }}

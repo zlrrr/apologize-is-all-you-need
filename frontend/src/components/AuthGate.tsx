@@ -1,4 +1,5 @@
 import { useState, useEffect, ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { verifyAuth, checkAuthStatus, setAuthToken } from '../services/api';
 import logger from '../utils/logger';
 
@@ -7,6 +8,7 @@ interface AuthGateProps {
 }
 
 export const AuthGate: React.FC<AuthGateProps> = ({ children }) => {
+  const { t } = useTranslation();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [authRequired, setAuthRequired] = useState(false);
@@ -93,7 +95,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ children }) => {
       setIsAuthenticated(true);
       setError('');
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || '认证失败，请检查邀请码或密码';
+      const errorMessage = err.response?.data?.message || t('auth.error');
       setError(errorMessage);
       logger.error('Authentication failed', err);
     } finally {
@@ -113,7 +115,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ children }) => {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">正在加载...</p>
+          <p className="mt-4 text-gray-600">{t('common.loading')}</p>
         </div>
       </div>
     );
@@ -130,8 +132,8 @@ export const AuthGate: React.FC<AuthGateProps> = ({ children }) => {
       <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-lg shadow-lg">
         {/* Header */}
         <div className="text-center">
-          <h2 className="text-3xl font-bold text-gray-800">道歉助手</h2>
-          <p className="mt-2 text-gray-600">请输入邀请码或密码访问</p>
+          <h2 className="text-3xl font-bold text-gray-800">{t('auth.title')}</h2>
+          <p className="mt-2 text-gray-600">{t('auth.subtitle')}</p>
         </div>
 
         {/* Form */}
@@ -139,12 +141,12 @@ export const AuthGate: React.FC<AuthGateProps> = ({ children }) => {
           {/* Invite Code Input */}
           <div>
             <label htmlFor="inviteCode" className="block text-sm font-medium text-gray-700 mb-1">
-              邀请码
+              {t('auth.inviteCode')}
             </label>
             <input
               id="inviteCode"
               type="text"
-              placeholder="请输入邀请码"
+              placeholder={t('auth.inviteCode')}
               value={inviteCode}
               onChange={(e) => setInviteCode(e.target.value)}
               onKeyPress={handleKeyPress}
@@ -159,19 +161,19 @@ export const AuthGate: React.FC<AuthGateProps> = ({ children }) => {
               <div className="w-full border-t border-gray-300"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">或</span>
+              <span className="px-2 bg-white text-gray-500">{t('auth.or')}</span>
             </div>
           </div>
 
           {/* Password Input */}
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-              访问密码
+              {t('auth.password')}
             </label>
             <input
               id="password"
               type="password"
-              placeholder="请输入访问密码"
+              placeholder={t('auth.password')}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               onKeyPress={handleKeyPress}
@@ -193,13 +195,8 @@ export const AuthGate: React.FC<AuthGateProps> = ({ children }) => {
             disabled={isSubmitting}
             className="w-full py-3 px-4 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
           >
-            {isSubmitting ? '验证中...' : '进入应用'}
+            {isSubmitting ? t('common.loading') : t('auth.enter')}
           </button>
-        </div>
-
-        {/* Footer */}
-        <div className="text-center text-xs text-gray-500 mt-6">
-          <p>请联系管理员获取邀请码或访问密码</p>
         </div>
       </div>
     </div>

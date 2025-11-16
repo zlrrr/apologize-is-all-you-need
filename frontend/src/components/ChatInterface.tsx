@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Message, ApologyStyle } from '../types';
 import { MessageBubble } from './MessageBubble';
 import { InputBox } from './InputBox';
 import { SessionList, Session } from './SessionList';
 import { ApologyCharacter } from './ApologyCharacter';
 import { HealthIndicator } from './HealthIndicator';
+import { LanguageSwitcher } from './LanguageSwitcher';
 import { sendMessage as sendMessageApi } from '../services/api';
 import {
   getSessions,
@@ -22,6 +24,7 @@ import logger from '../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
 
 export const ChatInterface: React.FC = () => {
+  const { t } = useTranslation();
   const [messages, setMessages] = useState<Message[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -158,7 +161,7 @@ export const ChatInterface: React.FC = () => {
 
   const handleClearHistory = () => {
     if (sessionId) {
-      if (confirm('确定要清空当前会话的历史记录吗？')) {
+      if (confirm(t('chat.confirmClear'))) {
         handleNewSession();
       }
     }
@@ -178,15 +181,18 @@ export const ChatInterface: React.FC = () => {
             />
             <div>
               <h1 className="text-2xl font-bold text-gray-800">
-                道歉助手
+                {t('app.title')}
               </h1>
               <p className="text-sm text-gray-500 mt-1">
-                我会真诚地理解和支持你
+                {t('header.subtitle')}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-4">
+            {/* Language switcher */}
+            <LanguageSwitcher />
+
             {/* Health indicator */}
             <HealthIndicator />
 
@@ -201,16 +207,16 @@ export const ChatInterface: React.FC = () => {
 
             {/* Style selector */}
             <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-600">道歉风格:</label>
+              <label className="text-sm text-gray-600">{t('chat.styleLabel')}:</label>
               <select
                 value={style}
                 onChange={(e) => setStyle(e.target.value as ApologyStyle)}
                 className="px-3 py-1.5 rounded border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                title="选择AI的道歉风格"
+                title={t('chat.styleTooltip')}
               >
-                <option value="gentle">温和</option>
-                <option value="formal">正式</option>
-                <option value="empathetic">共情</option>
+                <option value="gentle">{t('styles.gentle')}</option>
+                <option value="formal">{t('styles.formal')}</option>
+                <option value="empathetic">{t('styles.empathetic')}</option>
               </select>
             </div>
 
@@ -219,12 +225,12 @@ export const ChatInterface: React.FC = () => {
               <button
                 onClick={handleClearHistory}
                 className="px-4 py-1.5 text-sm rounded border border-red-300 text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2"
-                title="清空当前会话的所有聊天记录"
+                title={t('chat.clearTooltip')}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
-                清空历史
+                {t('chat.clearHistory')}
               </button>
             )}
           </div>
@@ -236,11 +242,11 @@ export const ChatInterface: React.FC = () => {
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center text-gray-500">
-              <p className="text-lg mb-2">👋 你好！</p>
-              <p className="text-sm">说说你的感受，我会认真倾听和理解</p>
+              <p className="text-lg mb-2">{t('chat.emptyStateGreeting')}</p>
+              <p className="text-sm">{t('chat.emptyStateSubtitle')}</p>
               {sessions.length > 0 && (
                 <p className="text-xs mt-4 text-gray-400">
-                  点击右上角"会话列表"查看历史会话
+                  {t('chat.emptyStateHint')}
                 </p>
               )}
             </div>

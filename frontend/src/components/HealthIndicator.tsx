@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { checkHealth } from '../services/api';
 import logger from '../utils/logger';
 
@@ -8,6 +9,7 @@ interface HealthStatus {
 }
 
 export const HealthIndicator: React.FC<{ className?: string }> = ({ className = '' }) => {
+  const { t } = useTranslation();
   const [health, setHealth] = useState<HealthStatus>({
     api: 'unavailable',
     lastCheck: null,
@@ -53,7 +55,7 @@ export const HealthIndicator: React.FC<{ className?: string }> = ({ className = 
   };
 
   const getStatusText = (): string => {
-    return health.api === 'healthy' ? '已连接' : '未连接';
+    return health.api === 'healthy' ? t('header.connected') : t('header.disconnected');
   };
 
   return (
@@ -61,11 +63,11 @@ export const HealthIndicator: React.FC<{ className?: string }> = ({ className = 
       {/* Simple status indicator */}
       <div
         className="flex items-center gap-2 text-sm"
-        title={health.api === 'healthy' ? '后端服务已连接' : '后端服务未连接'}
+        title={health.api === 'healthy' ? t('header.backendConnected') : t('header.backendDisconnected')}
       >
         <div className={`w-2 h-2 rounded-full ${getStatusColor()} ${isChecking ? 'animate-pulse' : ''}`} />
         <span className="text-gray-600 text-xs">
-          {isChecking ? '检查中...' : getStatusText()}
+          {isChecking ? t('header.checking') : getStatusText()}
         </span>
       </div>
     </div>
