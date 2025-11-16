@@ -14,6 +14,9 @@ router.get('/', async (req: Request, res: Response) => {
     const llmHealthy = await llmService.healthCheck();
     const config = llmService.getConfig();
 
+    // Check if LLM is properly configured
+    const isLLMConfigured = config.baseURL && config.baseURL.length > 0;
+
     const health = {
       status: llmHealthy ? 'healthy' : 'degraded',
       timestamp: new Date().toISOString(),
@@ -26,11 +29,22 @@ router.get('/', async (req: Request, res: Response) => {
         provider: config.provider,
         model: config.model,
         baseURL: config.baseURL,
+        configured: isLLMConfigured,
+      },
+      diagnostics: isLLMConfigured ? undefined : {
+        message: 'LLM provider not configured. Please set LLM_PROVIDER environment variable and corresponding credentials.',
+        suggestions: [
+          'For OpenAI: Set LLM_PROVIDER=openai, OPENAI_API_KEY, OPENAI_MODEL',
+          'For Anthropic: Set LLM_PROVIDER=anthropic, ANTHROPIC_API_KEY, ANTHROPIC_MODEL',
+          'For Gemini: Set LLM_PROVIDER=gemini, GEMINI_API_KEY, GEMINI_MODEL',
+          'For Custom: Set LLM_PROVIDER=custom, CUSTOM_BASE_URL, CUSTOM_API_KEY, CUSTOM_MODEL',
+        ],
       },
     };
 
-    const statusCode = llmHealthy ? 200 : 503;
-    res.status(statusCode).json(health);
+    // Always return 200 for API health check - the service is running
+    // LLM status is informational only
+    res.status(200).json(health);
   } catch (error) {
     logger.error('Health check failed', { error });
     res.status(500).json({
@@ -98,8 +112,8 @@ router.get('/detailed', async (req: Request, res: Response) => {
       },
     };
 
-    const statusCode = llmHealthy ? 200 : 503;
-    res.status(statusCode).json(health);
+    // Always return 200 - service is running, LLM status is informational
+    res.status(200).json(health);
   } catch (error) {
     logger.error('Detailed health check failed', { error });
     res.status(500).json({
@@ -121,6 +135,9 @@ router.get('/llm', async (req: Request, res: Response) => {
     const responseTime = Date.now() - startTime;
     const config = llmService.getConfig();
 
+    // Check if LLM is properly configured
+    const isLLMConfigured = config.baseURL && config.baseURL.length > 0;
+
     const llmHealth: any = {
       status: isHealthy ? 'healthy' : 'unavailable',
       timestamp: new Date().toISOString(),
@@ -131,6 +148,7 @@ router.get('/llm', async (req: Request, res: Response) => {
       diagnostics: {
         canConnect: isHealthy,
         timeout: config.timeout,
+        configured: isLLMConfigured,
       },
     };
 
@@ -142,6 +160,15 @@ router.get('/llm', async (req: Request, res: Response) => {
       } catch (error) {
         logger.warn('Failed to get models list', { error });
       }
+    } else if (!isLLMConfigured) {
+      // Provide configuration guidance
+      llmHealth.diagnostics.message = 'LLM provider not configured. Please set environment variables.';
+      llmHealth.diagnostics.suggestions = [
+        'For OpenAI: Set LLM_PROVIDER=openai, OPENAI_API_KEY, OPENAI_MODEL',
+        'For Anthropic: Set LLM_PROVIDER=anthropic, ANTHROPIC_API_KEY, ANTHROPIC_MODEL',
+        'For Gemini: Set LLM_PROVIDER=gemini, GEMINI_API_KEY, GEMINI_MODEL',
+        'For Custom: Set LLM_PROVIDER=custom, CUSTOM_BASE_URL, CUSTOM_API_KEY, CUSTOM_MODEL',
+      ];
     }
 
     const statusCode = isHealthy ? 200 : 503;
