@@ -31,7 +31,7 @@ export class LLMService {
       apiKey: config?.apiKey || providerConfig.apiKey || '',
       model: config?.model || providerConfig.model || 'default-model',
       temperature: config?.temperature || parseFloat(process.env.LLM_TEMPERATURE || '0.7'),
-      maxTokens: config?.maxTokens || parseInt(process.env.LLM_MAX_TOKENS || '500'),
+      maxTokens: config?.maxTokens || parseInt(process.env.LLM_MAX_TOKENS || '2000'),
       timeout: config?.timeout || 30000,
     };
 
@@ -160,6 +160,7 @@ export class LLMService {
         promptTokens: response.usage.prompt_tokens,
         completionTokens: response.usage.completion_tokens,
         totalTokens: response.usage.total_tokens,
+        thoughtsTokens: (response.usage as any).thoughts_tokens || 0,  // Gemini 2.5+ internal reasoning
         replyLength: response.choices[0].message.content.length,
       });
 
@@ -331,7 +332,12 @@ export class LLMService {
         partsCount: geminiData.candidates[0].content?.parts?.length || 0,
         textPreview: geminiData.candidates[0].content?.parts?.[0]?.text?.substring(0, 100) || 'NO_TEXT',
       } : null,
-      usageMetadata: geminiData.usageMetadata,
+      usageMetadata: {
+        promptTokenCount: geminiData.usageMetadata?.promptTokenCount || 0,
+        candidatesTokenCount: geminiData.usageMetadata?.candidatesTokenCount || 0,
+        totalTokenCount: geminiData.usageMetadata?.totalTokenCount || 0,
+        thoughtsTokenCount: geminiData.usageMetadata?.thoughtsTokenCount || 0,  // Key metric for Gemini 2.5
+      },
       promptFeedback: geminiData.promptFeedback,
     });
 
@@ -340,10 +346,18 @@ export class LLMService {
 
     // Check for safety blocks or other issues
     if (!text && candidate) {
+      const thoughtsTokenCount = geminiData.usageMetadata?.thoughtsTokenCount || 0;
+      const maxTokens = request.max_tokens || this.config.maxTokens;
+
       logger.warn('[LLM-GEMINI-EMPTY] Gemini returned empty content', {
         finishReason: candidate.finishReason,
         safetyRatings: candidate.safetyRatings,
         promptFeedback: geminiData.promptFeedback,
+        thoughtsTokenCount,
+        maxTokens,
+        issue: candidate.finishReason === 'MAX_TOKENS' && thoughtsTokenCount > maxTokens * 0.8
+          ? `Thoughts consumed ${thoughtsTokenCount} tokens out of ${maxTokens} maxTokens, leaving no room for output. Increase maxTokens.`
+          : 'Unknown issue',
       });
     }
 
@@ -366,7 +380,9 @@ export class LLMService {
         prompt_tokens: geminiData.usageMetadata?.promptTokenCount || 0,
         completion_tokens: geminiData.usageMetadata?.candidatesTokenCount || 0,
         total_tokens: geminiData.usageMetadata?.totalTokenCount || 0,
-      },
+        // Gemini 2.5+ specific: internal reasoning tokens
+        thoughts_tokens: geminiData.usageMetadata?.thoughtsTokenCount || 0,
+      } as any,
     };
   }
 
