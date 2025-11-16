@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>聊天功能调试工具 - Chat API Debugger</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .config-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .config-section h3 {
+            font-size: 16px;
+            margin-bottom: 15px;
+            color: #495057;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 13px;
+            color: #6c757d;
+            margin-bottom: 5px;
+        }
+
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .input-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            font-size: 14px;
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .response-section {
+            margin-top: 20px;
+        }
+
+        .response-box {
+            background: white;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .response-box.success {
+            border-color: #28a745;
+            background: #d4edda;
+        }
+
+        .response-box.error {
+            border-color: #dc3545;
+            background: #f8d7da;
+        }
+
+        .response-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .response-status {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            margin-right: 10px;
+        }
+
+        .status-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .status-error {
+            background: #dc3545;
+            color: white;
+        }
+
+        .response-title {
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .response-body {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+
+        .response-data {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .error-code {
+            background: #fff;
+            border: 1px solid #dc3545;
+            padding: 10px 15px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: #dc3545;
+            font-weight: bold;
+        }
+
+        .log-section {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            padding: 5px 0;
+            border-bottom: 1px solid #4a5568;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .log-timestamp {
+            color: #90cdf4;
+        }
+
+        .log-level-info {
+            color: #68d391;
+        }
+
+        .log-level-error {
+            color: #fc8181;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-right: 5px;
+        }
+
+        .badge-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .badge-error {
+            background: #dc3545;
+            color: white;
+        }
+
+        .badge-info {
+            background: #17a2b8;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 聊天功能调试工具</h1>
+            <p>Chat API Debugger - 测试和调试聊天接口</p>
+        </div>
+
+        <div class="content">
+            <!-- Configuration -->
+            <div class="config-section">
+                <h3>📝 配置</h3>
+                <div class="grid">
+                    <div class="input-group">
+                        <label for="backendUrl">后端 API 地址</label>
+                        <input type="text" id="backendUrl" value="https://apologize-is-all-you-need.onrender.com">
+                    </div>
+                    <div class="input-group">
+                        <label for="style">道歉风格</label>
+                        <select id="style">
+                            <option value="gentle">温和 (Gentle)</option>
+                            <option value="sincere">真诚 (Sincere)</option>
+                            <option value="formal">正式 (Formal)</option>
+                            <option value="humorous">幽默 (Humorous)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label for="message">测试消息</label>
+                    <textarea id="message" placeholder="输入测试消息，例如：我今天迟到了">我今天迟到了</textarea>
+                </div>
+            </div>
+
+            <!-- Test Button -->
+            <button class="btn-primary" onclick="testChatAPI()" id="testBtn">
+                🚀 发送测试消息
+            </button>
+
+            <!-- Response Section -->
+            <div class="response-section" id="responseSection" style="display: none;">
+                <div class="response-box" id="responseBox">
+                    <div class="response-header">
+                        <div class="response-status" id="responseStatus"></div>
+                        <div class="response-title" id="responseTitle"></div>
+                    </div>
+                    <div id="responseContent"></div>
+                </div>
+            </div>
+
+            <!-- Logs -->
+            <div class="log-section" id="logs">
+                <div class="log-entry">
+                    <span class="log-timestamp">[Ready]</span>
+                    <span class="log-level-info">INFO</span>
+                    聊天调试工具已就绪，点击"发送测试消息"开始测试
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let requestCount = 0;
+
+        function addLog(level, message) {
+            const logsDiv = document.getElementById('logs');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+
+            const timestamp = new Date().toLocaleTimeString();
+            entry.innerHTML = `
+                <span class="log-timestamp">[${timestamp}]</span>
+                <span class="log-level-${level.toLowerCase()}">${level}</span>
+                ${message}
+            `;
+
+            logsDiv.appendChild(entry);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+
+        async function testChatAPI() {
+            const baseUrl = document.getElementById('backendUrl').value;
+            const message = document.getElementById('message').value;
+            const style = document.getElementById('style').value;
+            const testBtn = document.getElementById('testBtn');
+
+            if (!message.trim()) {
+                addLog('ERROR', '消息不能为空');
+                return;
+            }
+
+            requestCount++;
+            const requestId = `REQ-${requestCount}`;
+
+            addLog('INFO', `[${requestId}] 开始发送聊天请求...`);
+            addLog('INFO', `[${requestId}] URL: ${baseUrl}/api/chat/message`);
+            addLog('INFO', `[${requestId}] Message: "${message.substring(0, 50)}..."`);
+            addLog('INFO', `[${requestId}] Style: ${style}`);
+
+            testBtn.disabled = true;
+            testBtn.textContent = '⏳ 发送中...';
+
+            const requestBody = {
+                message,
+                style
+            };
+
+            addLog('INFO', `[${requestId}] Request body: ${JSON.stringify(requestBody)}`);
+
+            const startTime = Date.now();
+
+            try {
+                addLog('INFO', `[${requestId}] 发送 POST 请求...`);
+
+                const response = await fetch(`${baseUrl}/api/chat/message`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                const duration = Date.now() - startTime;
+                addLog('INFO', `[${requestId}] 收到响应 (${duration}ms) - HTTP ${response.status}`);
+
+                const responseText = await response.text();
+                addLog('INFO', `[${requestId}] Response length: ${responseText.length} bytes`);
+
+                let data;
+                try {
+                    data = JSON.parse(responseText);
+                    addLog('INFO', `[${requestId}] JSON 解析成功`);
+                } catch (e) {
+                    addLog('ERROR', `[${requestId}] JSON 解析失败: ${e.message}`);
+                    addLog('ERROR', `[${requestId}] Raw response: ${responseText.substring(0, 200)}`);
+                    throw new Error('Invalid JSON response');
+                }
+
+                if (response.ok) {
+                    addLog('INFO', `[${requestId}] ✅ 请求成功!`);
+                    addLog('INFO', `[${requestId}] Session ID: ${data.sessionId || 'N/A'}`);
+                    addLog('INFO', `[${requestId}] Reply length: ${data.reply?.length || 0} chars`);
+                    addLog('INFO', `[${requestId}] Tokens used: ${data.tokensUsed || 0}`);
+                    addLog('INFO', `[${requestId}] Emotion: ${data.emotion || 'N/A'}`);
+
+                    showResponse(true, '成功接收到回复', data, null, duration);
+                } else {
+                    addLog('ERROR', `[${requestId}] ❌ 请求失败: HTTP ${response.status}`);
+                    addLog('ERROR', `[${requestId}] Error: ${data.error || 'Unknown'}`);
+                    addLog('ERROR', `[${requestId}] Error Code: ${data.errorCode || 'N/A'}`);
+                    addLog('ERROR', `[${requestId}] Message: ${data.message || 'Unknown error'}`);
+
+                    if (data.diagnostic) {
+                        addLog('INFO', `[${requestId}] 🔍 Diagnostic: ${JSON.stringify(data.diagnostic)}`);
+                    }
+
+                    showResponse(false, `请求失败 (HTTP ${response.status})`, data, data.errorCode, duration);
+                }
+
+            } catch (error) {
+                const duration = Date.now() - startTime;
+                addLog('ERROR', `[${requestId}] ❌ 网络错误: ${error.message}`);
+                addLog('ERROR', `[${requestId}] 可能的原因:`);
+                addLog('ERROR', `[${requestId}]   - 后端服务未运行或无法访问`);
+                addLog('ERROR', `[${requestId}]   - CORS 配置错误`);
+                addLog('ERROR', `[${requestId}]   - 网络连接问题`);
+
+                showResponse(false, '网络错误', {
+                    error: 'NetworkError',
+                    message: error.message,
+                    suggestion: '请检查后端服务是否运行，或尝试访问后端健康检查端点'
+                }, 'ERR-NETWORK', duration);
+            } finally {
+                testBtn.disabled = false;
+                testBtn.textContent = '🚀 发送测试消息';
+            }
+        }
+
+        function showResponse(success, title, data, errorCode, duration) {
+            const section = document.getElementById('responseSection');
+            const box = document.getElementById('responseBox');
+            const status = document.getElementById('responseStatus');
+            const titleEl = document.getElementById('responseTitle');
+            const content = document.getElementById('responseContent');
+
+            section.style.display = 'block';
+            box.className = `response-box ${success ? 'success' : 'error'}`;
+            status.className = `response-status ${success ? 'status-success' : 'status-error'}`;
+            status.textContent = success ? '✓' : '✗';
+            titleEl.textContent = title;
+
+            let html = '';
+
+            // Duration badge
+            html += `<span class="badge badge-info">响应时间: ${duration}ms</span>`;
+
+            // Error code if present
+            if (errorCode) {
+                html += `<div class="error-code">错误码: ${errorCode}</div>`;
+            }
+
+            // Response data
+            if (success && data.reply) {
+                html += `
+                    <div class="response-body">
+                        <strong>🤖 AI 回复:</strong><br>
+                        ${escapeHtml(data.reply)}
+                    </div>
+                    <div class="response-body" style="margin-top: 10px;">
+                        <strong>📊 元数据:</strong><br>
+                        <span class="badge badge-success">Tokens: ${data.tokensUsed}</span>
+                        <span class="badge badge-info">Emotion: ${data.emotion}</span>
+                        <span class="badge badge-info">Style: ${data.style}</span>
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div class="response-body">
+                        <strong>❌ 错误信息:</strong><br>
+                        ${escapeHtml(data.message || 'Unknown error')}
+                    </div>
+                `;
+
+                if (data.diagnostic) {
+                    html += `
+                        <div class="response-body" style="margin-top: 10px;">
+                            <strong>🔍 诊断信息:</strong><br>
+                            ${escapeHtml(JSON.stringify(data.diagnostic, null, 2))}
+                        </div>
+                    `;
+                }
+            }
+
+            // Full JSON response
+            html += `
+                <details style="margin-top: 15px;">
+                    <summary style="cursor: pointer; font-weight: 600; color: #667eea;">查看完整 JSON 响应</summary>
+                    <div class="response-data">${JSON.stringify(data, null, 2)}</div>
+                </details>
+            `;
+
+            content.innerHTML = html;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Initialize
+        addLog('INFO', '工具初始化完成');
+        addLog('INFO', '你可以修改配置并点击"发送测试消息"进行测试');
+        addLog('INFO', '所有请求和响应细节会在日志中显示');
+    </script>
+</body>
+</html>

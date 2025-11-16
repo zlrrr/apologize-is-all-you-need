@@ -31,7 +31,7 @@ export class LLMService {
       apiKey: config?.apiKey || providerConfig.apiKey || '',
       model: config?.model || providerConfig.model || 'default-model',
       temperature: config?.temperature || parseFloat(process.env.LLM_TEMPERATURE || '0.7'),
-      maxTokens: config?.maxTokens || parseInt(process.env.LLM_MAX_TOKENS || '500'),
+      maxTokens: config?.maxTokens || parseInt(process.env.LLM_MAX_TOKENS || '2000'),
       timeout: config?.timeout || 30000,
     };
 
@@ -101,12 +101,26 @@ export class LLMService {
    */
   async generateApology(params: ApologyRequest): Promise<ApologyResponse> {
     const startTime = Date.now();
+    const logger = (await import('../utils/logger.js')).default;
 
     try {
       const { message, style = 'gentle', history = [] } = params;
 
+      logger.info('[LLM-001] Starting apology generation', {
+        messageLength: message.length,
+        style,
+        historyLength: history.length,
+        provider: this.provider,
+        model: this.config.model,
+      });
+
       // Detect emotion from user message
       const detectedEmotion = params.emotion || detectEmotion(message);
+
+      logger.info('[LLM-002] Emotion detected', {
+        emotion: detectedEmotion,
+        messagePreview: message.substring(0, 50),
+      });
 
       // Build messages array
       const messages: ChatMessage[] = [
@@ -121,6 +135,15 @@ export class LLMService {
         },
       ];
 
+      logger.info('[LLM-003] Calling LLM API', {
+        provider: this.provider,
+        model: this.config.model,
+        baseURL: this.config.baseURL,
+        messagesCount: messages.length,
+        temperature: this.config.temperature,
+        maxTokens: this.config.maxTokens,
+      });
+
       // Call LLM API
       const response = await this.chatCompletion({
         messages,
@@ -129,6 +152,17 @@ export class LLMService {
       });
 
       const duration = Date.now() - startTime;
+
+      logger.info('[LLM-004] LLM API call successful', {
+        provider: this.provider,
+        model: this.config.model,
+        duration: `${duration}ms`,
+        promptTokens: response.usage.prompt_tokens,
+        completionTokens: response.usage.completion_tokens,
+        totalTokens: response.usage.total_tokens,
+        thoughtsTokens: (response.usage as any).thoughts_tokens || 0,  // Gemini 2.5+ internal reasoning
+        replyLength: response.choices[0].message.content.length,
+      });
 
       // Log successful LLM call
       const { logLLMCall } = await import('../utils/logger.js');
@@ -149,6 +183,17 @@ export class LLMService {
       };
     } catch (error) {
       const duration = Date.now() - startTime;
+
+      logger.error('[LLM-ERROR] Apology generation failed', {
+        provider: this.provider,
+        model: this.config.model,
+        baseURL: this.config.baseURL,
+        duration: `${duration}ms`,
+        errorName: error instanceof Error ? error.name : 'Unknown',
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorCode: (error as any).code,
+        errorStatus: (error as any).response?.status,
+      });
 
       // Log failed LLM call
       const { logLLMCall } = await import('../utils/logger.js');
@@ -273,8 +318,48 @@ export class LLMService {
 
     // Convert Gemini response to OpenAI format
     const geminiData = response.data;
+
+    // Log raw Gemini response for debugging
+    const logger = (await import('../utils/logger.js')).default;
+    logger.info('[LLM-GEMINI-RAW] Raw Gemini API response', {
+      hasCandidates: !!geminiData.candidates,
+      candidatesCount: geminiData.candidates?.length || 0,
+      firstCandidate: geminiData.candidates?.[0] ? {
+        finishReason: geminiData.candidates[0].finishReason,
+        hasSafetyRatings: !!geminiData.candidates[0].safetyRatings,
+        safetyRatings: geminiData.candidates[0].safetyRatings,
+        hasContent: !!geminiData.candidates[0].content,
+        partsCount: geminiData.candidates[0].content?.parts?.length || 0,
+        textPreview: geminiData.candidates[0].content?.parts?.[0]?.text?.substring(0, 100) || 'NO_TEXT',
+      } : null,
+      usageMetadata: {
+        promptTokenCount: geminiData.usageMetadata?.promptTokenCount || 0,
+        candidatesTokenCount: geminiData.usageMetadata?.candidatesTokenCount || 0,
+        totalTokenCount: geminiData.usageMetadata?.totalTokenCount || 0,
+        thoughtsTokenCount: geminiData.usageMetadata?.thoughtsTokenCount || 0,  // Key metric for Gemini 2.5
+      },
+      promptFeedback: geminiData.promptFeedback,
+    });
+
     const candidate = geminiData.candidates?.[0];
     const text = candidate?.content?.parts?.[0]?.text || '';
+
+    // Check for safety blocks or other issues
+    if (!text && candidate) {
+      const thoughtsTokenCount = geminiData.usageMetadata?.thoughtsTokenCount || 0;
+      const maxTokens = request.max_tokens || this.config.maxTokens;
+
+      logger.warn('[LLM-GEMINI-EMPTY] Gemini returned empty content', {
+        finishReason: candidate.finishReason,
+        safetyRatings: candidate.safetyRatings,
+        promptFeedback: geminiData.promptFeedback,
+        thoughtsTokenCount,
+        maxTokens,
+        issue: candidate.finishReason === 'MAX_TOKENS' && thoughtsTokenCount > maxTokens * 0.8
+          ? `Thoughts consumed ${thoughtsTokenCount} tokens out of ${maxTokens} maxTokens, leaving no room for output. Increase maxTokens.`
+          : 'Unknown issue',
+      });
+    }
 
     return {
       id: `gemini-${Date.now()}`,
@@ -295,7 +380,9 @@ export class LLMService {
         prompt_tokens: geminiData.usageMetadata?.promptTokenCount || 0,
         completion_tokens: geminiData.usageMetadata?.candidatesTokenCount || 0,
         total_tokens: geminiData.usageMetadata?.totalTokenCount || 0,
-      },
+        // Gemini 2.5+ specific: internal reasoning tokens
+        thoughts_tokens: geminiData.usageMetadata?.thoughtsTokenCount || 0,
+      } as any,
     };
   }
 

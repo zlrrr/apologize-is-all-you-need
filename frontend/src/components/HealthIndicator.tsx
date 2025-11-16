@@ -138,12 +138,23 @@ export const HealthIndicator: React.FC<{ className?: string }> = ({ className = 
             {/* Warning message if services are down */}
             {overallStatus !== 'healthy' && (
               <div className="pt-2 border-t">
-                <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+                <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded space-y-1">
                   {health.api === 'unavailable' && (
-                    <p>• 无法连接到后端服务，请检查服务是否运行</p>
+                    <p>• 无法连接到后端服务</p>
                   )}
                   {health.llm === 'unavailable' && (
-                    <p>• LLM服务不可用，请确认LM Studio已启动并加载模型</p>
+                    <>
+                      <p>• LLM 服务不可用</p>
+                      <p className="text-amber-500 ml-2 text-[10px]">
+                        可能原因：Gemini API 未配置
+                      </p>
+                      <p className="text-amber-500 ml-2 text-[10px]">
+                        请查看 GEMINI_CONFIGURATION_GUIDE.md
+                      </p>
+                    </>
+                  )}
+                  {health.llm === 'degraded' && (
+                    <p>• LLM 服务降级运行</p>
                   )}
                 </div>
               </div>
