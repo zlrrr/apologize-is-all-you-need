@@ -1,0 +1,52 @@
+# Render Blueprint Configuration
+# https://render.com/docs/blueprint-spec
+
+services:
+  # Backend API Service
+  - type: web
+    name: apologize-backend
+    runtime: node
+    plan: free  # 免费计划
+    region: oregon  # 可选: oregon, frankfurt, singapore
+    buildCommand: cd backend && npm install --include=dev && npm run build
+    startCommand: cd backend && npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: BACKEND_PORT
+        value: 10000  # Render默认端口
+      - key: LOG_LEVEL
+        value: info
+      # 以下环境变量需要在Render Dashboard手动设置
+      - key: LLM_PROVIDER
+        sync: false  # 从Render Dashboard设置
+      - key: OPENAI_API_KEY
+        sync: false  # Secret，从Render Dashboard设置
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: JWT_SECRET
+        sync: false  # Secret
+      - key: SESSION_SECRET
+        sync: false  # Secret
+      - key: FRONTEND_URL
+        sync: false  # 前端URL，部署后设置
+      - key: CORS_ORIGIN
+        sync: false  # 前端URL
+      - key: ACCESS_PASSWORD
+        sync: false  # 可选
+      - key: INVITE_CODES
+        sync: false  # 可选
+    # 自动部署设置
+    autoDeploy: true
+    branch: claude/add-plan-features-01KZ8uzJP67EWunQhRsC7EFL  # 监听当前开发分支
+    # 健康检查
+    healthCheck:
+      path: /api/health
+      interval: 30s
+      timeout: 10s
+      unhealthyThreshold: 3
+    # 免费计划会在15分钟无活动后休眠
+    # 首次请求会唤醒（需要几秒钟）

@@ -27,9 +27,9 @@ export class LLMService {
     // Default configuration
     this.config = {
       provider: this.provider,
-      baseURL: config?.baseURL || providerConfig.baseURL,
-      apiKey: config?.apiKey || providerConfig.apiKey,
-      model: config?.model || providerConfig.model,
+      baseURL: config?.baseURL || providerConfig.baseURL || '',
+      apiKey: config?.apiKey || providerConfig.apiKey || '',
+      model: config?.model || providerConfig.model || 'default-model',
       temperature: config?.temperature || parseFloat(process.env.LLM_TEMPERATURE || '0.7'),
       maxTokens: config?.maxTokens || parseInt(process.env.LLM_MAX_TOKENS || '500'),
       timeout: config?.timeout || 30000,
@@ -100,6 +100,8 @@ export class LLMService {
    * Generate an apology response based on user message
    */
   async generateApology(params: ApologyRequest): Promise<ApologyResponse> {
+    const startTime = Date.now();
+
     try {
       const { message, style = 'gentle', history = [] } = params;
 
@@ -126,6 +128,19 @@ export class LLMService {
         max_tokens: this.config.maxTokens,
       });
 
+      const duration = Date.now() - startTime;
+
+      // Log successful LLM call
+      const { logLLMCall } = await import('../utils/logger.js');
+      logLLMCall({
+        provider: this.provider,
+        model: this.config.model,
+        promptTokens: response.usage.prompt_tokens,
+        completionTokens: response.usage.completion_tokens,
+        totalTokens: response.usage.total_tokens,
+        duration,
+      });
+
       return {
         reply: response.choices[0].message.content,
         emotion: detectedEmotion,
@@ -133,6 +148,17 @@ export class LLMService {
         tokensUsed: response.usage.total_tokens,
       };
     } catch (error) {
+      const duration = Date.now() - startTime;
+
+      // Log failed LLM call
+      const { logLLMCall } = await import('../utils/logger.js');
+      logLLMCall({
+        provider: this.provider,
+        model: this.config.model,
+        duration,
+        error,
+      });
+
       throw this.handleError(error);
     }
   }
