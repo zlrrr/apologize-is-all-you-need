@@ -59,12 +59,14 @@ app.get('/api/test', (req, res) => {
 });
 
 // Root path handler (for Render health check and general info)
+// Updated: 2025-11-16 - Fix 403 Access Denied issue
 app.get('/', (req, res) => {
   res.json({
     status: 'ok',
     service: 'apologize-backend',
-    version: '1.0.0',
-    timestamp: new Date().toISOString(),
+    version: '1.0.1',
+    deployed: new Date().toISOString(),
+    message: 'Backend service is running',
     endpoints: {
       health: '/api/health',
       healthDetailed: '/api/health/detailed',
