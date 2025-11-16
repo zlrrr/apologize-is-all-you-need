@@ -1,5 +1,5 @@
 import bcrypt from 'bcrypt';
-import { db } from '../database/database.service.js';
+import { db, DatabaseService } from '../database/database.service.js';
 import logger from '../utils/logger.js';
 
 const SALT_ROUNDS = 10;
@@ -52,6 +52,16 @@ export interface SafeUser {
  * Handles user authentication and management
  */
 export class UserService {
+  private db: DatabaseService;
+
+  /**
+   * Constructor
+   * @param dbService - Optional database service instance (defaults to singleton)
+   */
+  constructor(dbService?: DatabaseService) {
+    this.db = dbService || db;
+  }
+
   /**
    * Register a new user
    */
@@ -64,7 +74,7 @@ export class UserService {
       this.validatePassword(password);
 
       // Check if username already exists
-      const existingUser = db.queryOne<User>(
+      const existingUser = this.db.queryOne<User>(
         'SELECT id FROM users WHERE username = ?',
         [username]
       );
@@ -77,7 +87,7 @@ export class UserService {
       const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
       // Insert new user
-      const result = db.execute(
+      const result = this.db.execute(
         'INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)',
         [username, passwordHash, 'user']
       );
@@ -85,7 +95,7 @@ export class UserService {
       logger.info('User registered successfully', { userId: result.lastInsertRowid, username });
 
       // Get the newly created user
-      const user = db.queryOne<User>(
+      const user = this.db.queryOne<User>(
         'SELECT * FROM users WHERE id = ?',
         [result.lastInsertRowid]
       );
@@ -112,7 +122,7 @@ export class UserService {
       const { username, password } = data;
 
       // Get user from database
-      const user = db.queryOne<User>(
+      const user = this.db.queryOne<User>(
         'SELECT * FROM users WHERE username = ?',
         [username]
       );
@@ -140,7 +150,7 @@ export class UserService {
       }
 
       // Update last login timestamp
-      db.execute(
+      this.db.execute(
         'UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?',
         [user.id]
       );
@@ -148,7 +158,7 @@ export class UserService {
       logger.info('User logged in successfully', { userId: user.id, username });
 
       // Get updated user data
-      const updatedUser = db.queryOne<User>(
+      const updatedUser = this.db.queryOne<User>(
         'SELECT * FROM users WHERE id = ?',
         [user.id]
       );
@@ -168,7 +178,7 @@ export class UserService {
    */
   getUserById(userId: number): SafeUser | null {
     try {
-      const user = db.queryOne<User>(
+      const user = this.db.queryOne<User>(
         'SELECT * FROM users WHERE id = ?',
         [userId]
       );
@@ -189,7 +199,7 @@ export class UserService {
    */
   getUserByUsername(username: string): SafeUser | null {
     try {
-      const user = db.queryOne<User>(
+      const user = this.db.queryOne<User>(
         'SELECT * FROM users WHERE username = ?',
         [username]
       );
@@ -210,7 +220,7 @@ export class UserService {
    */
   getAllUsers(): SafeUser[] {
     try {
-      const users = db.query<User>(
+      const users = this.db.query<User>(
         'SELECT * FROM users ORDER BY created_at DESC'
       );
 
@@ -226,14 +236,14 @@ export class UserService {
    */
   updateUserStatus(userId: number, isActive: boolean): SafeUser {
     try {
-      db.execute(
+      this.db.execute(
         'UPDATE users SET is_active = ? WHERE id = ?',
         [isActive ? 1 : 0, userId]
       );
 
       logger.info('User status updated', { userId, isActive });
 
-      const user = db.queryOne<User>(
+      const user = this.db.queryOne<User>(
         'SELECT * FROM users WHERE id = ?',
         [userId]
       );
@@ -255,7 +265,7 @@ export class UserService {
   async changePassword(userId: number, oldPassword: string, newPassword: string): Promise<void> {
     try {
       // Get user with password hash
-      const user = db.queryOne<User>(
+      const user = this.db.queryOne<User>(
         'SELECT * FROM users WHERE id = ?',
         [userId]
       );
@@ -278,7 +288,7 @@ export class UserService {
       const newPasswordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
 
       // Update password
-      db.execute(
+      this.db.execute(
         'UPDATE users SET password_hash = ? WHERE id = ?',
         [newPasswordHash, userId]
       );
@@ -295,7 +305,7 @@ export class UserService {
    */
   deleteUser(userId: number): void {
     try {
-      db.execute(
+      this.db.execute(
         'UPDATE users SET is_active = 0 WHERE id = ?',
         [userId]
       );
@@ -378,17 +388,17 @@ export class UserService {
     lastActivityDate: string | null;
   } {
     try {
-      const sessionCount = db.queryOne<{ count: number }>(
+      const sessionCount = this.db.queryOne<{ count: number }>(
         'SELECT COUNT(*) as count FROM sessions WHERE user_id = ?',
         [userId]
       );
 
-      const messageCount = db.queryOne<{ count: number }>(
+      const messageCount = this.db.queryOne<{ count: number }>(
         'SELECT COUNT(*) as count FROM messages WHERE user_id = ?',
         [userId]
       );
 
-      const activityDates = db.queryOne<{
+      const activityDates = this.db.queryOne<{
         first_session: string | null;
         last_activity: string | null;
       }>(

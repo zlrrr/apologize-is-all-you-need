@@ -30,12 +30,12 @@ CREATE TABLE IF NOT EXISTS sessions (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 
   -- Foreign key constraint
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-
-  -- Indexes for performance
-  INDEX idx_sessions_user_id (user_id),
-  INDEX idx_sessions_updated_at (updated_at)
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+-- Create indexes for sessions table
+CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_updated_at ON sessions(updated_at);
 
 -- Messages table
 -- Stores individual messages within sessions
@@ -50,13 +50,13 @@ CREATE TABLE IF NOT EXISTS messages (
 
   -- Foreign key constraints
   FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-
-  -- Indexes for performance
-  INDEX idx_messages_session_id (session_id),
-  INDEX idx_messages_user_id (user_id),
-  INDEX idx_messages_created_at (created_at)
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+-- Create indexes for messages table
+CREATE INDEX IF NOT EXISTS idx_messages_session_id ON messages(session_id);
+CREATE INDEX IF NOT EXISTS idx_messages_user_id ON messages(user_id);
+CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
 
 -- Create trigger to update updated_at timestamp on users table
 CREATE TRIGGER IF NOT EXISTS update_users_timestamp
@@ -79,6 +79,6 @@ INSERT OR IGNORE INTO users (id, username, password_hash, role)
 VALUES (
   1,
   'admin',
-  '$2b$10$rGHvZ7L9VQxgE3VxJ5QK3eO5YZzXqQJ5YZzXqQJ5YZzXqQJ5YZzXq',  -- Placeholder - will be updated during migration
+  '$2b$10$WYcWXU4CZc/MzyiNSFk1k.fr/a0wEGPDvY2wkpFgCrvbGwXhF5vca',  -- bcrypt hash for 'admin123'
   'admin'
 );
