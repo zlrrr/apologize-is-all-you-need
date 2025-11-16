@@ -1,19 +1,25 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import logger from '../utils/logger.js';
+import { userService, SafeUser } from '../services/user.service.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const INVITE_CODES = (process.env.INVITE_CODES || '').split(',').filter(Boolean);
 const ACCESS_PASSWORD = process.env.ACCESS_PASSWORD;
 
+// JWT payload interface
+export interface JWTPayload {
+  userId: number;
+  username: string;
+  role: 'user' | 'admin';
+  timestamp: number;
+}
+
 // Extend Express Request interface
 declare global {
   namespace Express {
     interface Request {
-      user?: {
-        authenticated: boolean;
-        timestamp: number;
-      };
+      user?: JWTPayload;
     }
   }
 }
@@ -39,16 +45,31 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as {
-      authenticated: boolean;
-      timestamp: number;
-    };
+    const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
+
+    // Verify user still exists and is active
+    const user = userService.getUserById(decoded.userId);
+
+    if (!user || !user.isActive) {
+      logger.warn('Authentication failed: User not found or inactive', {
+        userId: decoded.userId,
+        path: req.path,
+      });
+
+      res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Invalid or expired token',
+      });
+      return;
+    }
 
     req.user = decoded;
 
     logger.debug('Authentication successful', {
       path: req.path,
-      user: req.user,
+      userId: req.user.userId,
+      username: req.user.username,
+      role: req.user.role,
     });
 
     next();
@@ -69,6 +90,7 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
 /**
  * Optional authentication middleware
  * Does not block request if no token, but validates if present
+ * Supports both new user-based tokens and legacy tokens
  */
 export function optionalAuthenticate(req: Request, res: Response, next: NextFunction): void {
   const token = req.headers.authorization?.replace('Bearer ', '');
@@ -79,15 +101,21 @@ export function optionalAuthenticate(req: Request, res: Response, next: NextFunc
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as {
-      authenticated: boolean;
-      timestamp: number;
-    };
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
 
-    req.user = decoded;
-    logger.debug('Optional authentication successful', {
-      path: req.path,
-    });
+    // Check if it's a new user-based token (has userId)
+    if (decoded.userId) {
+      req.user = decoded as JWTPayload;
+      logger.debug('Optional authentication successful (user-based)', {
+        path: req.path,
+        userId: req.user.userId,
+      });
+    } else {
+      // Legacy token - skip setting req.user
+      logger.debug('Optional authentication successful (legacy)', {
+        path: req.path,
+      });
+    }
   } catch (error) {
     logger.debug('Optional authentication: Invalid token', {
       path: req.path,
@@ -129,9 +157,25 @@ export function verifyCredentials(inviteCode?: string, password?: string): boole
 }
 
 /**
- * Generate JWT token
+ * Generate JWT token for a user
  */
-export function generateToken(payload: any = {}): string {
+export function generateToken(user: SafeUser): string {
+  const payload: JWTPayload = {
+    userId: user.id,
+    username: user.username,
+    role: user.role,
+    timestamp: Date.now(),
+  };
+
+  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+
+  return token;
+}
+
+/**
+ * Generate legacy token (for backward compatibility with invite code/password auth)
+ */
+export function generateLegacyToken(payload: any = {}): string {
   const token = jwt.sign(
     {
       authenticated: true,
@@ -143,6 +187,47 @@ export function generateToken(payload: any = {}): string {
   );
 
   return token;
+}
+
+/**
+ * Require admin role middleware
+ * Must be used after authenticate() middleware
+ */
+export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
+  if (!req.user) {
+    logger.warn('Admin check failed: No user in request', {
+      path: req.path,
+    });
+
+    res.status(401).json({
+      error: 'Unauthorized',
+      message: 'Authentication required',
+    });
+    return;
+  }
+
+  if (req.user.role !== 'admin') {
+    logger.warn('Admin check failed: User is not admin', {
+      userId: req.user.userId,
+      username: req.user.username,
+      role: req.user.role,
+      path: req.path,
+    });
+
+    res.status(403).json({
+      error: 'Forbidden',
+      message: 'Admin access required',
+    });
+    return;
+  }
+
+  logger.debug('Admin check passed', {
+    userId: req.user.userId,
+    username: req.user.username,
+    path: req.path,
+  });
+
+  next();
 }
 
 /**
