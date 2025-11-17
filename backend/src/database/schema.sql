@@ -72,13 +72,8 @@ BEGIN
   UPDATE sessions SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
 END;
 
--- Insert default admin user (password: admin123)
--- Password hash generated using bcrypt with salt rounds = 10
--- IMPORTANT: Change this password immediately after first login in production
-INSERT OR IGNORE INTO users (id, username, password_hash, role)
-VALUES (
-  1,
-  'admin',
-  '$2b$10$WYcWXU4CZc/MzyiNSFk1k.fr/a0wEGPDvY2wkpFgCrvbGwXhF5vca',  -- bcrypt hash for 'admin123'
-  'admin'
-);
+-- Default admin user creation
+-- Admin account is now created via database.service.ts using environment variables
+-- Set DEFAULT_ADMIN_USERNAME and DEFAULT_ADMIN_PASSWORD in your .env file
+-- See backend/.env.example for configuration details
+-- If DEFAULT_ADMIN_PASSWORD is not set, a random password will be auto-generated and logged

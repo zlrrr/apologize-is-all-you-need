@@ -46,22 +46,39 @@ export class SessionService {
   /**
    * Get or create a session for a user
    * Data isolation: Users can only access their own sessions
+   * Security: Prevents session ID collision across users
    */
   getOrCreateSession(sessionId: string, userId: number): Session {
     try {
-      // Try to get existing session
+      // Try to get existing session belonging to this user
       const dbSession = this.db.queryOne<DBSession>(
         'SELECT * FROM sessions WHERE id = ? AND user_id = ?',
         [sessionId, userId]
       );
 
       if (dbSession) {
-        // Load messages for the session
+        // Session exists and belongs to this user
         const messages = this.getMessages(sessionId, userId);
         return this.toSession(dbSession, messages);
       }
 
-      // Create new session
+      // Check if session exists with different owner (prevent ID collision)
+      const existingSession = this.db.queryOne<DBSession>(
+        'SELECT * FROM sessions WHERE id = ?',
+        [sessionId]
+      );
+
+      if (existingSession) {
+        // Session exists but belongs to another user
+        logger.error('Session ID collision attempt', {
+          sessionId,
+          requestedBy: userId,
+          ownedBy: existingSession.user_id,
+        });
+        throw new Error(`Session ${sessionId} already exists and belongs to another user`);
+      }
+
+      // Create new session - session doesn't exist
       this.db.execute(
         'INSERT INTO sessions (id, user_id, title) VALUES (?, ?, ?)',
         [sessionId, userId, null]
@@ -80,7 +97,7 @@ export class SessionService {
       };
     } catch (error) {
       logger.error('Failed to get or create session', { error, sessionId, userId });
-      throw new Error('Failed to get or create session');
+      throw error; // Propagate the error to caller
     }
   }
 

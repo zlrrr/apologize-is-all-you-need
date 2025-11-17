@@ -87,8 +87,8 @@
       "placeholder": "请再次输入密码"
     },
     "footer": {
-      "defaultAdmin": "提供默认管理员账号",
-      "adminCredentials": "用户名: admin, 密码: admin123"
+      "defaultAdmin": "默认管理员账号由系统管理员配置",
+      "contactAdmin": "请联系系统管理员获取管理员凭据"
     }
   },
   "common": {

@@ -3,6 +3,7 @@ import { llmService } from '../services/llm.service.js';
 import { sessionService } from '../services/session.service.js';
 import { validateChatMessage, validateSessionId } from '../middleware/validation.middleware.js';
 import { authenticate, optionalAuthenticate } from '../middleware/auth.middleware.js';
+import { verifySessionOwnership, preventSessionCollision } from '../middleware/session-authorization.middleware.js';
 import { ApologyStyle } from '../types/index.js';
 import { v4 as uuidv4 } from 'uuid';
 import logger, { sanitizeForLog } from '../utils/logger.js';
@@ -13,8 +14,9 @@ const router = Router();
  * POST /api/chat/message
  * Send a message and get an apology response
  * Requires authentication
+ * Security: Prevents session ID collision
  */
-router.post('/message', authenticate, validateChatMessage, async (req: Request, res: Response, next: NextFunction) => {
+router.post('/message', authenticate, validateChatMessage, preventSessionCollision, async (req: Request, res: Response, next: NextFunction) => {
   const startTime = Date.now();
   const requestId = req.requestId || uuidv4();
 
@@ -145,8 +147,9 @@ router.post('/message', authenticate, validateChatMessage, async (req: Request, 
  * GET /api/chat/history
  * Get conversation history for a session
  * Requires authentication - users can only access their own sessions
+ * Security: Verifies session ownership before access
  */
-router.get('/history', authenticate, validateSessionId, async (req: Request, res: Response) => {
+router.get('/history', authenticate, validateSessionId, verifySessionOwnership, async (req: Request, res: Response) => {
   try {
     const sessionId = req.query.sessionId as string;
     const userId = req.user!.userId;
@@ -173,8 +176,9 @@ router.get('/history', authenticate, validateSessionId, async (req: Request, res
  * DELETE /api/chat/history
  * Clear conversation history for a session
  * Requires authentication - users can only clear their own sessions
+ * Security: Verifies session ownership before clearing
  */
-router.delete('/history', authenticate, validateSessionId, async (req: Request, res: Response) => {
+router.delete('/history', authenticate, validateSessionId, verifySessionOwnership, async (req: Request, res: Response) => {
   try {
     const sessionId = req.query.sessionId as string || req.body.sessionId;
     const userId = req.user!.userId;
@@ -195,8 +199,9 @@ router.delete('/history', authenticate, validateSessionId, async (req: Request, 
  * DELETE /api/chat/session
  * Delete a session entirely
  * Requires authentication - users can only delete their own sessions
+ * Security: Verifies session ownership before deletion
  */
-router.delete('/session', authenticate, validateSessionId, async (req: Request, res: Response) => {
+router.delete('/session', authenticate, validateSessionId, verifySessionOwnership, async (req: Request, res: Response) => {
   try {
     const sessionId = req.query.sessionId as string || req.body.sessionId;
     const userId = req.user!.userId;
@@ -224,6 +229,7 @@ router.delete('/session', authenticate, validateSessionId, async (req: Request, 
  * GET /api/chat/sessions
  * Get all sessions for the authenticated user
  * Requires authentication
+ * Security: Only returns user's own sessions, does not expose userId
  */
 router.get('/sessions', authenticate, async (req: Request, res: Response) => {
   try {
@@ -232,6 +238,31 @@ router.get('/sessions', authenticate, async (req: Request, res: Response) => {
     // Get user's sessions (with data isolation)
     const sessions = sessionService.getUserSessions(userId);
 
+    // Verify all returned sessions belong to current user
+    const invalidSessions = sessions.filter(s => s.userId !== userId);
+    if (invalidSessions.length > 0) {
+      logger.error('Data isolation breach detected in session list', {
+        userId,
+        invalidSessionCount: invalidSessions.length,
+        invalidSessionIds: invalidSessions.map(s => s.id),
+      });
+      // Return only valid sessions
+      const validSessions = sessions.filter(s => s.userId === userId);
+
+      res.json({
+        sessions: validSessions.map(s => ({
+          id: s.id,
+          title: s.title,
+          messageCount: s.messages.length,
+          createdAt: s.createdAt,
+          updatedAt: s.updatedAt,
+          // SECURITY: Do NOT expose userId - it's internal information
+        })),
+        count: validSessions.length,
+      });
+      return;
+    }
+
     res.json({
       sessions: sessions.map(s => ({
         id: s.id,
@@ -239,10 +270,12 @@ router.get('/sessions', authenticate, async (req: Request, res: Response) => {
         messageCount: s.messages.length,
         createdAt: s.createdAt,
         updatedAt: s.updatedAt,
+        // SECURITY: Do NOT expose userId - it's internal information
       })),
       count: sessions.length,
     });
   } catch (error) {
+    logger.error('Failed to get sessions', { error, userId: req.user!.userId });
     throw error;
   }
 });

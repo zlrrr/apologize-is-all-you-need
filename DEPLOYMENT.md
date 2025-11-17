@@ -424,4 +424,77 @@ A: Vercel自动提供HTTPS。Railway也自动配置。VPS需要Let's Encrypt。
 
 ---
 
-**最后更新**: 2025-11-15
+---
+
+## 🚨 CORS和认证故障排除
+
+### 502 Bad Gateway 错误
+
+**症状**: OPTIONS请求成功(204)，但POST请求失败返回502
+
+**原因**: CORS配置问题 - 在启用credentials时使用了通配符origin
+
+**解决方案**:
+1. 在Render设置 `FRONTEND_URL` 环境变量
+2. 重新部署后端
+3. 检查日志中的: "🌐 CORS allowed origins: ..."
+
+### "Not allowed by CORS" 错误
+
+**症状**: 浏览器控制台显示CORS策略错误
+
+**原因**: 前端URL不在允许的origins列表中
+
+**解决方案**:
+1. 验证Render中的FRONTEND_URL与Vercel部署URL完全匹配
+2. 检查是否有拼写错误(https vs http, 结尾斜杠等)
+3. 检查后端日志中的: "CORS origin blocked"
+
+### Session/Cookie问题
+
+**症状**: 认证有效但不持久
+
+**原因**: Cookie安全设置与跨域配置不兼容
+
+**解决方案**:
+1. 确保在Render上设置了 `NODE_ENV=production`
+2. 验证前端和后端在生产环境都使用HTTPS
+3. 检查浏览器控制台的cookie警告
+
+### 登录返回401未授权
+
+**症状**: 用户不存在，登录失败
+
+**原因**: 数据库中还没有该用户
+
+**解决方案**:
+1. 首先通过 `/api/auth/register` 端点注册新用户
+2. 然后使用这些凭据登录
+3. 或通过管理面板创建初始管理员用户(如果启用)
+
+### 关键环境变量检查清单
+
+**Render后端必需设置**:
+```bash
+✅ FRONTEND_URL=https://your-app.vercel.app  # 关键！用于CORS
+✅ NODE_ENV=production                        # 关键！用于cookie安全
+✅ SESSION_SECRET=强随机字符串                # 安全必需
+✅ JWT_SECRET=强随机字符串                    # 认证必需
+✅ LLM_PROVIDER=openai (或其他)               # LLM配置
+✅ OPENAI_API_KEY=sk-...                     # API密钥
+```
+
+**后端日志应该显示**:
+```
+🌐 CORS allowed origins: http://localhost:5173, https://your-app.vercel.app
+```
+
+如果看到:
+```
+⚠️  CORS: No FRONTEND_URL configured - allowing all origins
+```
+说明缺少FRONTEND_URL环境变量！
+
+---
+
+**最后更新**: 2025-11-17
