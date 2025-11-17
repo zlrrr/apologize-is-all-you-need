@@ -110,5 +110,44 @@
     "administrator": "Administrator",
     "adminDashboard": "Admin Dashboard",
     "confirmLogout": "Are you sure you want to logout?"
+  },
+  "admin": {
+    "welcome": "Welcome",
+    "tabs": {
+      "overview": "Overview",
+      "users": "Users",
+      "sessions": "Sessions"
+    },
+    "overview": {
+      "title": "System Overview"
+    },
+    "stats": {
+      "totalUsers": "Total Users",
+      "activeUsers": "Active Users",
+      "inactiveUsers": "Inactive Users",
+      "admins": "Administrators",
+      "totalSessions": "Total Sessions"
+    },
+    "users": {
+      "title": "User Management",
+      "username": "Username",
+      "role": "Role",
+      "status": "Status",
+      "lastLogin": "Last Login",
+      "actions": "Actions",
+      "active": "Active",
+      "inactive": "Inactive",
+      "never": "Never",
+      "enable": "Enable",
+      "disable": "Disable"
+    },
+    "sessions": {
+      "title": "Session Management",
+      "untitled": "Untitled Session",
+      "user": "User",
+      "messages": "messages",
+      "updated": "Updated",
+      "empty": "No sessions found"
+    }
   }
 }

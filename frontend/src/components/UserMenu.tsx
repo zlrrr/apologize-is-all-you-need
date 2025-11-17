@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
+import { AdminDashboard } from './AdminDashboard';
 
 export const UserMenu: React.FC = () => {
   const { t } = useTranslation();
   const { user, logout, isAdmin } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
+  const [showAdminDashboard, setShowAdminDashboard] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close menu when clicking outside
@@ -118,7 +120,7 @@ export const UserMenu: React.FC = () => {
               <button
                 onClick={() => {
                   setIsOpen(false);
-                  // TODO: Navigate to admin dashboard
+                  setShowAdminDashboard(true);
                 }}
                 className="w-full text-left px-4 py-2 text-sm text-purple-700 hover:bg-purple-50 transition-colors flex items-center gap-2"
               >
@@ -141,6 +143,11 @@ export const UserMenu: React.FC = () => {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Admin Dashboard Modal */}
+      {showAdminDashboard && (
+        <AdminDashboard onClose={() => setShowAdminDashboard(false)} />
       )}
     </div>
   );

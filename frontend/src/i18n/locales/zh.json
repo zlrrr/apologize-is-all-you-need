@@ -110,5 +110,44 @@
     "administrator": "系统管理员",
     "adminDashboard": "管理员控制台",
     "confirmLogout": "确定要退出登录吗？"
+  },
+  "admin": {
+    "welcome": "欢迎",
+    "tabs": {
+      "overview": "概览",
+      "users": "用户管理",
+      "sessions": "会话管理"
+    },
+    "overview": {
+      "title": "系统概览"
+    },
+    "stats": {
+      "totalUsers": "总用户数",
+      "activeUsers": "活跃用户",
+      "inactiveUsers": "禁用用户",
+      "admins": "管理员数",
+      "totalSessions": "总会话数"
+    },
+    "users": {
+      "title": "用户管理",
+      "username": "用户名",
+      "role": "角色",
+      "status": "状态",
+      "lastLogin": "最后登录",
+      "actions": "操作",
+      "active": "活跃",
+      "inactive": "禁用",
+      "never": "从未登录",
+      "enable": "启用",
+      "disable": "禁用"
+    },
+    "sessions": {
+      "title": "会话管理",
+      "untitled": "未命名会话",
+      "user": "用户",
+      "messages": "条消息",
+      "updated": "更新时间",
+      "empty": "暂无会话记录"
+    }
   }
 }
