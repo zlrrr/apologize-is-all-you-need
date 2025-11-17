@@ -476,9 +476,17 @@ Authorization: Bearer <admin-token>
 
 ### Initial Admin Account
 
-**Username**: admin
-**Password**: admin123
-**Role**: admin
+⚠️ **DEPRECATED - INSECURE CONFIGURATION** ⚠️
+
+This default admin configuration is **NO LONGER VALID**.
+
+**Current Secure Configuration** (Phase 10):
+- Admin credentials are now configured via environment variables
+- See `backend/.env.example` for proper setup
+- Set `DEFAULT_ADMIN_USERNAME` and `DEFAULT_ADMIN_PASSWORD`
+- If password not set, system auto-generates a secure random password
+
+**Legacy credentials have been removed for security reasons.**
 
 ⚠️ **IMPORTANT**: Change this password immediately after first login in production!
 

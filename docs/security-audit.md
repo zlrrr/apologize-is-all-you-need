@@ -35,15 +35,17 @@ All identified vulnerabilities have been successfully remediated. The applicatio
 
 **Location 1**: `frontend/src/i18n/locales/en.json` and `zh.json`
 ```json
-// Before (INSECURE)
+// Before (INSECURE) - Example of vulnerable code
 {
   "auth": {
-    "adminCredentials": "Username: admin, Password: admin123"
+    "adminCredentials": "Username: admin, Password: [REDACTED]"
   }
 }
 ```
 
 **Impact**: Admin credentials exposed to all frontend users via browser DevTools
+
+**Note**: The actual password has been redacted in this documentation for security reasons.
 
 **Location 2**: `backend/src/database/schema.sql`
 ```sql
@@ -56,18 +58,22 @@ VALUES ('admin', '$2b$10$...', 'admin');
 
 **Location 3**: `backend/src/database/database.service.ts`
 ```typescript
-// Before (INSECURE)
-const passwordHash = await bcrypt.hash('admin123', 10);
+// Before (INSECURE) - Example of vulnerable code
+const passwordHash = await bcrypt.hash('[REDACTED]', 10);
 ```
 
 **Impact**: Default admin password hardcoded in source code
 
+**Note**: The actual password has been redacted in this documentation.
+
 #### Exploitation Scenario
 
 1. Attacker views frontend source code or DevTools
-2. Obtains default admin credentials (admin/admin123)
+2. Obtains default admin credentials (username/[REDACTED])
 3. Logs in as administrator
 4. Gains full system access
+
+**Note**: Actual credentials redacted for security in this documentation.
 
 **CVSS Score**: 9.8 (Critical)
 - **Attack Vector**: Network

@@ -932,7 +932,11 @@ router.get('/health', async (req, res) => {
 // backend/src/middleware/auth.middleware.ts
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+// ⚠️ SECURITY: Always set JWT_SECRET in environment variables
+// NEVER use default values in production
+const JWT_SECRET = process.env.JWT_SECRET || (() => {
+  throw new Error('JWT_SECRET environment variable is required');
+})();
 const INVITE_CODES = (process.env.INVITE_CODES || '').split(',').filter(Boolean);
 const ACCESS_PASSWORD = process.env.ACCESS_PASSWORD;
 
@@ -1096,9 +1100,9 @@ export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) 
 
 **环境变量配置**:
 ```bash
-# .env
-JWT_SECRET=your-secret-key-change-in-production
-ACCESS_PASSWORD=your-strong-password
+# .env (EXAMPLE - Replace with actual secure values)
+JWT_SECRET=[GENERATE-STRONG-RANDOM-SECRET-32-CHARS-MIN]
+ACCESS_PASSWORD=[USE-STRONG-PASSWORD-HERE]
 INVITE_CODES=CODE123,CODE456,CODE789
 ```
 
@@ -1214,7 +1218,7 @@ INVITE_CODES=CODE123,CODE456,CODE789
 □ 添加管理员专属路由保护
 
 # Checkpoint 9.7: 初始数据和测试
-□ 创建默认管理员账号(admin/admin123)
+□ 创建默认管理员账号 (⚠️ 已废弃 - 现通过环境变量配置，见Phase 10)
 □ 添加种子数据脚本
 □ 测试用户注册登录流程
 □ 测试数据隔离(用户A看不到用户B的数据)
@@ -1305,7 +1309,10 @@ const isValid = await bcrypt.compare(password, user.password_hash);
 ```typescript
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+// ⚠️ SECURITY WARNING: JWT_SECRET must be set in environment
+const JWT_SECRET = process.env.JWT_SECRET || (() => {
+  throw new Error('CRITICAL: JWT_SECRET not set in environment');
+})();
 
 // 生成token
 const token = jwt.sign(
@@ -1776,9 +1783,13 @@ function App() {
 **初始管理员账号**:
 ```bash
 # 在数据库初始化脚本中创建
-Username: admin
-Password: admin123  # 首次登录后应修改
+⚠️ **DEPRECATED - INSECURE EXAMPLE** ⚠️
+Username: [REDACTED - Use environment variables]
+Password: [REDACTED - See Phase 10 security updates]
 Role: admin
+
+**IMPORTANT**: Default credentials are now configured via environment variables.
+See `backend/.env.example` for secure configuration.
 ```
 
 **验收标准**:
@@ -1891,11 +1902,11 @@ Role: admin
 
 #### 问题1: 硬编码Admin凭据 (CWE-798)
 
-**影响范围**:
-- `frontend/src/i18n/locales/en.json` - 显示 "Username: admin, Password: admin123"
-- `frontend/src/i18n/locales/zh.json` - 显示 "用户名: admin, 密码: admin123"
-- `backend/src/database/schema.sql` - 注释中包含密码
-- `backend/src/database/database.service.ts` - 硬编码密码 'admin123'
+**影响范围** (已修复):
+- `frontend/src/i18n/locales/en.json` - ~~显示 "Username: admin, Password: [REDACTED]"~~ ✅ 已移除
+- `frontend/src/i18n/locales/zh.json` - ~~显示 "用户名: admin, 密码: [REDACTED]"~~ ✅ 已移除
+- `backend/src/database/schema.sql` - ~~注释中包含密码~~ ✅ 已移除
+- `backend/src/database/database.service.ts` - ~~硬编码密码~~ ✅ 已改用环境变量
 
 **风险等级**: 🔴 高危
 - 攻击者可以通过查看前端代码轻易获取管理员凭据
@@ -2046,7 +2057,7 @@ private async createDefaultAdmin() {
 {
   "auth": {
     "defaultAdmin": "Default admin account is configured by system administrator",
-    // Remove: "adminCredentials": "Username: admin, Password: admin123"
+    // ✅ FIXED: Removed hardcoded credentials (was: "adminCredentials": "Username: admin, Password: [REDACTED]")
   }
 }
 ```

@@ -3,7 +3,20 @@ import jwt from 'jsonwebtoken';
 import logger from '../utils/logger.js';
 import { userService, SafeUser } from '../services/user.service.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+// ⚠️ SECURITY WARNING: JWT_SECRET must be set in production
+const JWT_SECRET = process.env.JWT_SECRET || (() => {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const defaultSecret = 'insecure-dev-secret-DO-NOT-USE-IN-PRODUCTION';
+
+  if (isProduction) {
+    logger.error('CRITICAL SECURITY ERROR: JWT_SECRET not set in production!');
+    throw new Error('JWT_SECRET environment variable is required in production');
+  }
+
+  logger.warn('⚠️  Using default JWT_SECRET for development. DO NOT use in production!');
+  return defaultSecret;
+})();
+
 const INVITE_CODES = (process.env.INVITE_CODES || '').split(',').filter(Boolean);
 const ACCESS_PASSWORD = process.env.ACCESS_PASSWORD;
 

@@ -33,9 +33,9 @@ describe('Admin Credentials Configuration', () => {
       fs.unlinkSync(testDbPath);
     }
 
-    // Reset environment variables to test defaults
-    process.env.DEFAULT_ADMIN_USERNAME = 'admin';
-    process.env.DEFAULT_ADMIN_PASSWORD = 'admin123';
+    // Reset environment variables to test defaults (from vitest.config.ts)
+    process.env.DEFAULT_ADMIN_USERNAME = 'test_admin_user';
+    process.env.DEFAULT_ADMIN_PASSWORD = 'TestP@ssw0rd!2024#Secure';
   });
 
   it('should create admin with credentials from environment variables', async () => {
@@ -153,10 +153,12 @@ describe('Frontend Credential Exposure', () => {
     const enContent = fs.readFileSync(enPath, 'utf8');
     const zhContent = fs.readFileSync(zhPath, 'utf8');
 
-    // Check for hardcoded credentials
+    // Check for hardcoded credentials (should not contain any default passwords)
     expect(enContent).not.toContain('admin123');
+    expect(enContent).not.toContain('TestP@ssw0rd');
     expect(enContent).not.toContain('Password: admin');
     expect(zhContent).not.toContain('admin123');
+    expect(zhContent).not.toContain('TestP@ssw0rd');
     expect(zhContent).not.toContain('密码: admin');
   });
 

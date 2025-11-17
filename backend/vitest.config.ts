@@ -13,11 +13,12 @@ export default defineConfig({
     },
     // Set environment variables for tests
     env: {
-      // Admin credentials for testing
-      DEFAULT_ADMIN_USERNAME: 'admin',
-      DEFAULT_ADMIN_PASSWORD: 'admin123',
-      // JWT secret for testing
-      JWT_SECRET: 'test-jwt-secret-key',
+      // Admin credentials for testing ONLY - not for production
+      // These values are only used in isolated test environments
+      DEFAULT_ADMIN_USERNAME: 'test_admin_user',
+      DEFAULT_ADMIN_PASSWORD: 'TestP@ssw0rd!2024#Secure',
+      // JWT secret for testing ONLY - random value generated for tests
+      JWT_SECRET: 'test-only-jwt-secret-do-not-use-in-production-' + Math.random().toString(36),
     },
   },
 });

@@ -42,7 +42,7 @@ describe('Session Authorization', () => {
     app.use(cors({ credentials: true }));
     app.use(express.json());
     app.use(session({
-      secret: 'test-secret',
+      secret: 'test-session-secret-' + Math.random().toString(36).substring(2),
       resave: false,
       saveUninitialized: true,
       cookie: { secure: false }
@@ -59,7 +59,8 @@ describe('Session Authorization', () => {
     // Clean up test data before each test (keep admin user from environment)
     db.execute('DELETE FROM messages');
     db.execute('DELETE FROM sessions');
-    db.execute('DELETE FROM users WHERE username NOT IN (?, ?)', ['admin', 'testadmin']);
+    const adminUsername = process.env.DEFAULT_ADMIN_USERNAME || 'test_admin_user';
+    db.execute('DELETE FROM users WHERE username NOT IN (?)', [adminUsername]);
 
     // Register test users
     const user1Res = await request(app)
@@ -72,11 +73,12 @@ describe('Session Authorization', () => {
       .send({ username: 'testuser2', password: 'password2' });
     user2Token = user2Res.body.token;
 
-    // Use default admin (created from environment variable DEFAULT_ADMIN_USERNAME=admin)
+    // Use default admin (created from environment variable in vitest.config.ts)
     // Login as admin using the test password from vitest.config.ts
+    const adminPassword = process.env.DEFAULT_ADMIN_PASSWORD || 'TestP@ssw0rd!2024#Secure';
     const adminRes = await request(app)
       .post('/api/auth/login')
-      .send({ username: 'admin', password: 'admin123' });
+      .send({ username: adminUsername, password: adminPassword });
     adminToken = adminRes.body.token;
   });
 
