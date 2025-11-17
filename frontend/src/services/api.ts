@@ -218,7 +218,82 @@ function getErrorMessage(error: AxiosError): string {
 export default api;
 
 /**
- * Authentication APIs
+ * JWT Authentication APIs
+ */
+
+// User types
+export interface User {
+  id: number;
+  username: string;
+  role: 'user' | 'admin';
+  createdAt?: string;
+  lastLoginAt?: string;
+}
+
+export interface AuthResponse {
+  user: User;
+  token: string;
+  expiresIn: number;
+  message?: string;
+}
+
+export interface RegisterRequest {
+  username: string;
+  password: string;
+}
+
+export interface LoginRequest {
+  username: string;
+  password: string;
+}
+
+/**
+ * Register a new user
+ */
+export async function register(data: RegisterRequest): Promise<AuthResponse> {
+  try {
+    const response = await api.post<AuthResponse>('/api/auth/register', data);
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      throw new Error(error.response?.data?.message || 'Registration failed');
+    }
+    throw error;
+  }
+}
+
+/**
+ * Login with username and password
+ */
+export async function login(data: LoginRequest): Promise<AuthResponse> {
+  try {
+    const response = await api.post<AuthResponse>('/api/auth/login', data);
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      throw new Error(error.response?.data?.message || 'Login failed');
+    }
+    throw error;
+  }
+}
+
+/**
+ * Get current authenticated user
+ */
+export async function getCurrentUser(): Promise<{ user: User }> {
+  try {
+    const response = await api.get<{ user: User }>('/api/auth/me');
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      throw new Error(error.response?.data?.message || 'Failed to get user');
+    }
+    throw error;
+  }
+}
+
+/**
+ * Legacy Authentication APIs (kept for backward compatibility)
  */
 export async function verifyAuth(inviteCode?: string, password?: string): Promise<any> {
   try {

@@ -48,10 +48,48 @@
     "title": "Apology Assistant",
     "subtitle": "Please enter invite code or password to access",
     "inviteCode": "Invite Code",
-    "password": "Access Password",
+    "password": "Password",
     "or": "or",
     "enter": "Enter App",
-    "error": "Authentication failed, please check invite code or password"
+    "error": "Authentication failed, please check invite code or password",
+    "username": "Username",
+    "confirmPassword": "Confirm Password",
+    "login": {
+      "title": "Login",
+      "submit": "Login",
+      "noAccount": "Don't have an account?",
+      "createAccount": "Create one"
+    },
+    "register": {
+      "title": "Register",
+      "submit": "Create Account",
+      "hasAccount": "Already have an account?",
+      "loginHere": "Login here"
+    },
+    "validation": {
+      "required": "Username and password are required",
+      "usernameTooShort": "Username must be at least 3 characters",
+      "passwordTooShort": "Password must be at least 6 characters",
+      "passwordMismatch": "Passwords do not match"
+    },
+    "error": {
+      "generic": "Authentication failed, please try again"
+    },
+    "username": {
+      "placeholder": "Enter your username",
+      "hint": "At least 3 characters, letters, numbers, and underscores only"
+    },
+    "password": {
+      "placeholder": "Enter your password",
+      "hint": "At least 6 characters"
+    },
+    "confirmPassword": {
+      "placeholder": "Confirm your password"
+    },
+    "footer": {
+      "defaultAdmin": "Default admin account available",
+      "adminCredentials": "Username: admin, Password: admin123"
+    }
   },
   "common": {
     "confirm": "Confirm",
@@ -64,5 +102,13 @@
   "settings": {
     "language": "Language",
     "theme": "Theme"
+  },
+  "user": {
+    "profile": "Profile",
+    "logout": "Logout",
+    "admin": "Admin",
+    "administrator": "Administrator",
+    "adminDashboard": "Admin Dashboard",
+    "confirmLogout": "Are you sure you want to logout?"
   }
 }

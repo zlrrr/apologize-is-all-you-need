@@ -7,6 +7,7 @@ import { SessionList, Session } from './SessionList';
 import { ApologyCharacter } from './ApologyCharacter';
 import { HealthIndicator } from './HealthIndicator';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { UserMenu } from './UserMenu';
 import { sendMessage as sendMessageApi } from '../services/api';
 import {
   getSessions,
@@ -190,6 +191,9 @@ export const ChatInterface: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-4">
+            {/* User menu */}
+            <UserMenu />
+
             {/* Language switcher */}
             <LanguageSwitcher />
 
