@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { llmService } from '../services/llm.service.js';
 import { sessionService } from '../services/session.service.js';
 import { validateChatMessage, validateSessionId } from '../middleware/validation.middleware.js';
+import { authenticate, optionalAuthenticate } from '../middleware/auth.middleware.js';
 import { ApologyStyle } from '../types/index.js';
 import { v4 as uuidv4 } from 'uuid';
 import logger, { sanitizeForLog } from '../utils/logger.js';
@@ -11,13 +12,17 @@ const router = Router();
 /**
  * POST /api/chat/message
  * Send a message and get an apology response
+ * Requires authentication
  */
-router.post('/message', validateChatMessage, async (req: Request, res: Response, next: NextFunction) => {
+router.post('/message', authenticate, validateChatMessage, async (req: Request, res: Response, next: NextFunction) => {
   const startTime = Date.now();
   const requestId = req.requestId || uuidv4();
 
   try {
     const { message, style, sessionId: clientSessionId } = req.body;
+
+    // Get authenticated user ID
+    const userId = req.user!.userId;
 
     // Use provided session ID or create a new one
     const sessionId = clientSessionId || uuidv4();
@@ -25,17 +30,19 @@ router.post('/message', validateChatMessage, async (req: Request, res: Response,
     logger.info('[CHAT-001] Processing chat message', {
       requestId,
       sessionId,
+      userId,
       messageLength: message?.length || 0,
       style: style || 'gentle',
       hasHistory: clientSessionId ? 'yes' : 'no',
     });
 
-    // Get conversation history
-    const history = sessionService.getMessages(sessionId);
+    // Get conversation history (with user isolation)
+    const history = sessionService.getMessages(sessionId, userId);
 
     logger.info('[CHAT-002] Retrieved conversation history', {
       requestId,
       sessionId,
+      userId,
       historyCount: history.length,
     });
 
@@ -43,6 +50,7 @@ router.post('/message', validateChatMessage, async (req: Request, res: Response,
     logger.info('[CHAT-003] Calling LLM service', {
       requestId,
       sessionId,
+      userId,
       provider: llmService.getConfig().provider,
       model: llmService.getConfig().model,
     });
@@ -56,26 +64,28 @@ router.post('/message', validateChatMessage, async (req: Request, res: Response,
     logger.info('[CHAT-004] LLM response received', {
       requestId,
       sessionId,
+      userId,
       replyLength: response.reply?.length || 0,
       tokensUsed: response.tokensUsed,
       emotion: response.emotion,
     });
 
-    // Save user message and assistant response to session
-    sessionService.addMessage(sessionId, {
+    // Save user message and assistant response to session (with user isolation)
+    sessionService.addMessage(sessionId, userId, {
       role: 'user',
       content: message,
     });
 
-    sessionService.addMessage(sessionId, {
+    sessionService.addMessage(sessionId, userId, {
       role: 'assistant',
       content: response.reply,
-    });
+    }, response.tokensUsed);
 
     logger.info('[CHAT-005] Session updated successfully', {
       requestId,
       sessionId,
-      totalMessages: sessionService.getMessages(sessionId).length,
+      userId,
+      totalMessages: sessionService.getMessages(sessionId, userId).length,
     });
 
     const duration = Date.now() - startTime;
@@ -134,23 +144,25 @@ router.post('/message', validateChatMessage, async (req: Request, res: Response,
 /**
  * GET /api/chat/history
  * Get conversation history for a session
+ * Requires authentication - users can only access their own sessions
  */
-router.get('/history', validateSessionId, async (req: Request, res: Response) => {
+router.get('/history', authenticate, validateSessionId, async (req: Request, res: Response) => {
   try {
     const sessionId = req.query.sessionId as string;
+    const userId = req.user!.userId;
 
-    // Get messages for session
-    const messages = sessionService.getMessages(sessionId);
+    // Get messages for session (with user isolation)
+    const messages = sessionService.getMessages(sessionId, userId);
 
     // Get session info
-    const sessionInfo = sessionService.getSessionInfo(sessionId);
+    const session = sessionService.getOrCreateSession(sessionId, userId);
 
     res.json({
       sessionId,
       messages,
       messageCount: messages.length,
-      createdAt: sessionInfo?.createdAt,
-      updatedAt: sessionInfo?.updatedAt,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
     });
   } catch (error) {
     throw error;
@@ -160,13 +172,15 @@ router.get('/history', validateSessionId, async (req: Request, res: Response) =>
 /**
  * DELETE /api/chat/history
  * Clear conversation history for a session
+ * Requires authentication - users can only clear their own sessions
  */
-router.delete('/history', validateSessionId, async (req: Request, res: Response) => {
+router.delete('/history', authenticate, validateSessionId, async (req: Request, res: Response) => {
   try {
     const sessionId = req.query.sessionId as string || req.body.sessionId;
+    const userId = req.user!.userId;
 
-    // Clear session
-    sessionService.clearSession(sessionId);
+    // Clear session (with user isolation)
+    sessionService.clearSession(sessionId, userId);
 
     res.json({
       sessionId,
@@ -180,13 +194,15 @@ router.delete('/history', validateSessionId, async (req: Request, res: Response)
 /**
  * DELETE /api/chat/session
  * Delete a session entirely
+ * Requires authentication - users can only delete their own sessions
  */
-router.delete('/session', validateSessionId, async (req: Request, res: Response) => {
+router.delete('/session', authenticate, validateSessionId, async (req: Request, res: Response) => {
   try {
     const sessionId = req.query.sessionId as string || req.body.sessionId;
+    const userId = req.user!.userId;
 
-    // Delete session
-    const deleted = sessionService.deleteSession(sessionId);
+    // Delete session (with user isolation)
+    const deleted = sessionService.deleteSession(sessionId, userId);
 
     if (deleted) {
       res.json({
@@ -196,7 +212,7 @@ router.delete('/session', validateSessionId, async (req: Request, res: Response)
     } else {
       res.status(404).json({
         error: 'Not Found',
-        message: 'Session not found',
+        message: 'Session not found or access denied',
       });
     }
   } catch (error) {
@@ -206,15 +222,25 @@ router.delete('/session', validateSessionId, async (req: Request, res: Response)
 
 /**
  * GET /api/chat/sessions
- * Get all session IDs (for debugging)
+ * Get all sessions for the authenticated user
+ * Requires authentication
  */
-router.get('/sessions', async (req: Request, res: Response) => {
+router.get('/sessions', authenticate, async (req: Request, res: Response) => {
   try {
-    const sessionIds = sessionService.getAllSessionIds();
+    const userId = req.user!.userId;
+
+    // Get user's sessions (with data isolation)
+    const sessions = sessionService.getUserSessions(userId);
 
     res.json({
-      sessions: sessionIds,
-      count: sessionIds.length,
+      sessions: sessions.map(s => ({
+        id: s.id,
+        title: s.title,
+        messageCount: s.messages.length,
+        createdAt: s.createdAt,
+        updatedAt: s.updatedAt,
+      })),
+      count: sessions.length,
     });
   } catch (error) {
     throw error;

@@ -1,0 +1,153 @@
+{
+  "app": {
+    "title": "道歉助手",
+    "subtitle": "AI提供无限情绪价值"
+  },
+  "header": {
+    "subtitle": "我会真诚地理解和支持你",
+    "connected": "已连接",
+    "disconnected": "未连接",
+    "checking": "检查中...",
+    "backendConnected": "后端服务已连接",
+    "backendDisconnected": "后端服务未连接"
+  },
+  "chat": {
+    "inputPlaceholder": "输入你的消息...",
+    "send": "发送",
+    "newSession": "新建会话",
+    "clearHistory": "清空历史",
+    "sessionList": "会话列表",
+    "confirmClear": "确定要清空当前会话的历史记录吗？",
+    "emptyStateGreeting": "👋 你好！",
+    "emptyStateSubtitle": "说说你的感受，我会认真倾听和理解",
+    "emptyStateHint": "点击右上角「会话列表」查看历史会话",
+    "styleLabel": "道歉风格",
+    "styleTooltip": "选择AI的道歉风格",
+    "clearTooltip": "清空当前会话的所有聊天记录",
+    "sessionListTooltip": "查看和管理所有会话历史记录",
+    "newSessionTooltip": "开始一个新的对话会话"
+  },
+  "styles": {
+    "gentle": "温和",
+    "formal": "正式",
+    "empathetic": "共情"
+  },
+  "session": {
+    "list": "会话列表",
+    "new": "新建会话",
+    "empty": "暂无会话",
+    "emptyHint": "点击上方按钮创建新会话",
+    "delete": "删除",
+    "confirmDelete": "确定要删除这个会话吗？",
+    "justNow": "刚刚",
+    "hoursAgo": "{{hours}}小时前",
+    "yesterday": "昨天",
+    "messages": "{{count}} 条消息"
+  },
+  "auth": {
+    "title": "道歉助手",
+    "subtitle": "请输入邀请码或密码访问",
+    "inviteCode": "邀请码",
+    "password": "密码",
+    "or": "或",
+    "enter": "进入应用",
+    "error": "认证失败，请检查邀请码或密码",
+    "username": "用户名",
+    "confirmPassword": "确认密码",
+    "login": {
+      "title": "登录",
+      "submit": "登录",
+      "noAccount": "还没有账号？",
+      "createAccount": "立即注册"
+    },
+    "register": {
+      "title": "注册",
+      "submit": "创建账号",
+      "hasAccount": "已有账号？",
+      "loginHere": "点击登录"
+    },
+    "validation": {
+      "required": "用户名和密码不能为空",
+      "usernameTooShort": "用户名至少需要3个字符",
+      "passwordTooShort": "密码至少需要6个字符",
+      "passwordMismatch": "两次输入的密码不一致"
+    },
+    "error": {
+      "generic": "认证失败，请重试"
+    },
+    "username": {
+      "placeholder": "请输入用户名",
+      "hint": "至少3个字符，仅限字母、数字和下划线"
+    },
+    "password": {
+      "placeholder": "请输入密码",
+      "hint": "至少6个字符"
+    },
+    "confirmPassword": {
+      "placeholder": "请再次输入密码"
+    },
+    "footer": {
+      "defaultAdmin": "提供默认管理员账号",
+      "adminCredentials": "用户名: admin, 密码: admin123"
+    }
+  },
+  "common": {
+    "confirm": "确认",
+    "cancel": "取消",
+    "save": "保存",
+    "delete": "删除",
+    "edit": "编辑",
+    "loading": "加载中..."
+  },
+  "settings": {
+    "language": "语言",
+    "theme": "主题"
+  },
+  "user": {
+    "profile": "个人资料",
+    "logout": "退出登录",
+    "admin": "管理员",
+    "administrator": "系统管理员",
+    "adminDashboard": "管理员控制台",
+    "confirmLogout": "确定要退出登录吗？"
+  },
+  "admin": {
+    "welcome": "欢迎",
+    "tabs": {
+      "overview": "概览",
+      "users": "用户管理",
+      "sessions": "会话管理"
+    },
+    "overview": {
+      "title": "系统概览"
+    },
+    "stats": {
+      "totalUsers": "总用户数",
+      "activeUsers": "活跃用户",
+      "inactiveUsers": "禁用用户",
+      "admins": "管理员数",
+      "totalSessions": "总会话数"
+    },
+    "users": {
+      "title": "用户管理",
+      "username": "用户名",
+      "role": "角色",
+      "status": "状态",
+      "lastLogin": "最后登录",
+      "actions": "操作",
+      "active": "活跃",
+      "inactive": "禁用",
+      "never": "从未登录",
+      "enable": "启用",
+      "disable": "禁用"
+    },
+    "sessions": {
+      "title": "会话管理",
+      "untitled": "未命名会话",
+      "user": "用户",
+      "messages": "条消息",
+      "updated": "更新时间",
+      "empty": "暂无会话记录"
+    }
+  }
+}

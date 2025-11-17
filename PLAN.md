@@ -1161,16 +1161,661 @@ INVITE_CODES=CODE123,CODE456,CODE789
 
 ---
 
+### Phase 9: Bug修复、国际化与用户认证系统 [5-8小时]
+
+**目标**: 修复已知问题,实现国际化支持,构建多用户认证和数据隔离系统
+
+**任务清单**:
+```bash
+# Checkpoint 9.1: UI问题修复
+□ 关闭/移除前端Environment Debug调试面板
+□ 修复或移除LLM服务状态显示(当前显示不可用但实际可用)
+□ 为会话列表按钮添加文字说明/tooltip
+□ 为清空会话按钮添加文字说明/tooltip
+□ 优化按钮UI,提升可识别性
+
+# Checkpoint 9.2: 用户认证系统设计
+□ 设计数据库schema(users表、sessions表)
+□ 定义角色系统(user/admin两种角色)
+□ 设计认证流程(注册、登录、登出)
+□ 规划数据隔离策略(基于userId)
+□ 编写技术方案文档
+
+# Checkpoint 9.3: 后端认证实现
+□ 创建用户数据模型(User、Role)
+□ 实现用户注册API(POST /api/auth/register)
+□ 实现用户登录API(POST /api/auth/login)
+□ 使用bcrypt加密密码存储
+□ 实现JWT token生成和验证
+□ 创建认证中间件(验证token)
+□ 添加角色检查中间件(requireRole)
+
+# Checkpoint 9.4: 数据隔离实现
+□ 修改消息数据模型(添加userId字段)
+□ 更新聊天API,自动关联当前用户
+□ 实现用户级数据查询过滤
+□ 实现管理员查看所有数据功能
+□ 添加数据访问权限检查
+
+# Checkpoint 9.5: 前端认证界面
+□ 创建登录页面组件(LoginPage)
+□ 创建注册页面组件(RegisterPage)
+□ 实现表单验证(用户名、密码强度)
+□ 添加认证状态管理(AuthContext)
+□ 实现路由守卫(未登录跳转登录页)
+□ 添加用户信息显示和登出功能
+
+# Checkpoint 9.6: 管理员功能实现
+□ 创建管理员控制台页面
+□ 实现用户列表查看功能
+□ 实现查看所有会话功能(按用户分组)
+□ 添加用户管理功能(启用/禁用用户)
+□ 实现会话统计和分析
+□ 添加管理员专属路由保护
+
+# Checkpoint 9.7: 初始数据和测试
+□ 创建默认管理员账号(admin/admin123)
+□ 添加种子数据脚本
+□ 测试用户注册登录流程
+□ 测试数据隔离(用户A看不到用户B的数据)
+□ 测试管理员功能(可查看所有数据)
+□ 编写认证系统使用文档
+
+# Checkpoint 9.8: 国际化(i18n)支持
+□ 集成react-i18next国际化框架
+□ 创建语言资源文件(en.json/zh.json)
+□ 提取所有界面文本为可翻译资源
+□ 实现语言切换组件(LanguageSwitcher)
+□ 设置默认语言为英语
+□ 更新页面标题(英文:"Apologize Is All You Need", 中文:"道歉助手")
+□ 实现语言偏好持久化(localStorage)
+□ 测试所有页面的双语切换
+```
+
+**核心实现要点**:
+
+**1. 数据库Schema**:
+```sql
+-- users表
+CREATE TABLE users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  username TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  role TEXT DEFAULT 'user' CHECK(role IN ('user', 'admin')),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  is_active BOOLEAN DEFAULT 1
+);
+
+-- messages表(添加user_id)
+CREATE TABLE messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  session_id TEXT NOT NULL,
+  role TEXT NOT NULL,
+  content TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+-- sessions表
+CREATE TABLE sessions (
+  id TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  title TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+```
+
+**2. 认证API设计**:
+```typescript
+// 注册
+POST /api/auth/register
+Body: { username: string, password: string }
+Response: { user: { id, username, role }, token: string }
+
+// 登录
+POST /api/auth/login
+Body: { username: string, password: string }
+Response: { user: { id, username, role }, token: string }
+
+// 获取当前用户信息
+GET /api/auth/me
+Headers: { Authorization: "Bearer <token>" }
+Response: { user: { id, username, role } }
+
+// 登出(可选,主要依赖前端清除token)
+POST /api/auth/logout
+```
+
+**3. 密码加密(bcrypt)**:
+```typescript
+import bcrypt from 'bcrypt';
+
+// 注册时加密
+const saltRounds = 10;
+const passwordHash = await bcrypt.hash(password, saltRounds);
+
+// 登录时验证
+const isValid = await bcrypt.compare(password, user.password_hash);
+```
+
+**4. JWT Token生成**:
+```typescript
+import jwt from 'jsonwebtoken';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+
+// 生成token
+const token = jwt.sign(
+  {
+    userId: user.id,
+    username: user.username,
+    role: user.role
+  },
+  JWT_SECRET,
+  { expiresIn: '7d' }
+);
+
+// 验证token
+const decoded = jwt.verify(token, JWT_SECRET);
+```
+
+**5. 认证中间件**:
+```typescript
+// backend/src/middleware/auth.middleware.ts
+export function authenticate(req, res, next) {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+
+  if (!token) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded; // { userId, username, role }
+    next();
+  } catch (error) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+}
+
+export function requireAdmin(req, res, next) {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden: Admin only' });
+  }
+  next();
+}
+```
+
+**6. 数据隔离查询**:
+```typescript
+// 普通用户查询自己的消息
+router.get('/api/chat/history', authenticate, async (req, res) => {
+  const userId = req.user.userId;
+  const messages = await db.query(
+    'SELECT * FROM messages WHERE user_id = ? ORDER BY created_at',
+    [userId]
+  );
+  res.json({ messages });
+});
+
+// 管理员查询所有消息
+router.get('/api/admin/messages', authenticate, requireAdmin, async (req, res) => {
+  const { userId } = req.query;
+
+  const query = userId
+    ? 'SELECT * FROM messages WHERE user_id = ? ORDER BY created_at'
+    : 'SELECT * FROM messages ORDER BY created_at';
+
+  const params = userId ? [userId] : [];
+  const messages = await db.query(query, params);
+  res.json({ messages });
+});
+```
+
+**7. 前端认证Context**:
+```typescript
+// frontend/src/contexts/AuthContext.tsx
+interface AuthContextType {
+  user: User | null;
+  login: (username: string, password: string) => Promise<void>;
+  register: (username: string, password: string) => Promise<void>;
+  logout: () => void;
+  isAdmin: boolean;
+}
+
+export const AuthProvider: React.FC = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    // 从localStorage恢复登录状态
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      // 验证token并获取用户信息
+      fetchCurrentUser(token);
+    }
+  }, []);
+
+  const login = async (username: string, password: string) => {
+    const response = await api.post('/api/auth/login', { username, password });
+    const { user, token } = response.data;
+
+    localStorage.setItem('auth_token', token);
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    setUser(user);
+  };
+
+  const logout = () => {
+    localStorage.removeItem('auth_token');
+    delete api.defaults.headers.common['Authorization'];
+    setUser(null);
+  };
+
+  return (
+    <AuthContext.Provider value={{
+      user,
+      login,
+      register,
+      logout,
+      isAdmin: user?.role === 'admin'
+    }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+```
+
+**8. 登录页面**:
+```typescript
+// frontend/src/pages/LoginPage.tsx
+export const LoginPage: React.FC = () => {
+  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const { login, register } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    try {
+      if (mode === 'login') {
+        await login(username, password);
+      } else {
+        await register(username, password);
+      }
+      navigate('/');
+    } catch (err) {
+      setError(err.response?.data?.error || '操作失败');
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-lg shadow">
+        <h2 className="text-3xl font-bold text-center">
+          {mode === 'login' ? '登录' : '注册'}
+        </h2>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input
+            type="text"
+            placeholder="用户名"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            className="w-full px-4 py-2 border rounded-lg"
+            required
+          />
+          <input
+            type="password"
+            placeholder="密码"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full px-4 py-2 border rounded-lg"
+            required
+            minLength={6}
+          />
+
+          {error && <div className="text-red-600 text-sm">{error}</div>}
+
+          <button
+            type="submit"
+            className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            {mode === 'login' ? '登录' : '注册'}
+          </button>
+        </form>
+
+        <button
+          onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
+          className="w-full text-sm text-gray-600 hover:text-gray-800"
+        >
+          {mode === 'login' ? '没有账号?点击注册' : '已有账号?点击登录'}
+        </button>
+      </div>
+    </div>
+  );
+};
+```
+
+**9. 路由保护**:
+```typescript
+// frontend/src/App.tsx
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+
+const ProtectedRoute = ({ children, adminOnly = false }) => {
+  const { user, isAdmin } = useAuth();
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (adminOnly && !isAdmin) {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
+};
+
+function App() {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/" element={
+            <ProtectedRoute>
+              <ChatInterface />
+            </ProtectedRoute>
+          } />
+          <Route path="/admin" element={
+            <ProtectedRoute adminOnly>
+              <AdminDashboard />
+            </ProtectedRoute>
+          } />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
+  );
+}
+```
+
+**10. 国际化(i18n)实现**:
+
+```bash
+# 安装依赖
+npm install react-i18next i18next i18next-browser-languagedetector
+```
+
+```typescript
+// frontend/src/i18n/config.ts
+import i18n from 'i18next';
+import { initReactI18next } from 'react-i18next';
+import LanguageDetector from 'i18next-browser-languagedetector';
+
+import en from './locales/en.json';
+import zh from './locales/zh.json';
+
+i18n
+  .use(LanguageDetector)
+  .use(initReactI18next)
+  .init({
+    resources: {
+      en: { translation: en },
+      zh: { translation: zh }
+    },
+    fallbackLng: 'en', // 默认语言设置为英语
+    lng: 'en', // 强制初始语言为英语
+    interpolation: {
+      escapeValue: false
+    },
+    detection: {
+      order: ['localStorage', 'navigator'],
+      caches: ['localStorage']
+    }
+  });
+
+export default i18n;
+```
+
+```json
+// frontend/src/i18n/locales/en.json
+{
+  "app": {
+    "title": "Apologize Is All You Need",
+    "subtitle": "Unlimited emotional value through AI"
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "logout": "Logout",
+    "username": "Username",
+    "password": "Password",
+    "noAccount": "Don't have an account? Register",
+    "hasAccount": "Already have an account? Login",
+    "loginFailed": "Login failed, please check your credentials"
+  },
+  "chat": {
+    "inputPlaceholder": "Type your message...",
+    "send": "Send",
+    "newSession": "New Session",
+    "clearHistory": "Clear History",
+    "sessionList": "Session List",
+    "confirmClear": "Are you sure you want to clear the chat history?",
+    "emptyState": "Start a new conversation"
+  },
+  "admin": {
+    "dashboard": "Admin Dashboard",
+    "users": "Users",
+    "allSessions": "All Sessions",
+    "statistics": "Statistics"
+  },
+  "settings": {
+    "language": "Language",
+    "theme": "Theme"
+  },
+  "common": {
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "loading": "Loading..."
+  }
+}
+```
+
+```json
+// frontend/src/i18n/locales/zh.json
+{
+  "app": {
+    "title": "道歉助手",
+    "subtitle": "AI提供无限情绪价值"
+  },
+  "auth": {
+    "login": "登录",
+    "register": "注册",
+    "logout": "登出",
+    "username": "用户名",
+    "password": "密码",
+    "noAccount": "没有账号?点击注册",
+    "hasAccount": "已有账号?点击登录",
+    "loginFailed": "登录失败,请检查用户名和密码"
+  },
+  "chat": {
+    "inputPlaceholder": "输入你的消息...",
+    "send": "发送",
+    "newSession": "新建会话",
+    "clearHistory": "清空历史",
+    "sessionList": "会话列表",
+    "confirmClear": "确定要清空聊天记录吗?",
+    "emptyState": "开始新的对话"
+  },
+  "admin": {
+    "dashboard": "管理员控制台",
+    "users": "用户管理",
+    "allSessions": "所有会话",
+    "statistics": "统计信息"
+  },
+  "settings": {
+    "language": "语言",
+    "theme": "主题"
+  },
+  "common": {
+    "confirm": "确认",
+    "cancel": "取消",
+    "save": "保存",
+    "delete": "删除",
+    "edit": "编辑",
+    "loading": "加载中..."
+  }
+}
+```
+
+```typescript
+// frontend/src/components/LanguageSwitcher.tsx
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+
+export const LanguageSwitcher: React.FC = () => {
+  const { i18n, t } = useTranslation();
+
+  const changeLanguage = (lng: string) => {
+    i18n.changeLanguage(lng);
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <label className="text-sm text-gray-600">{t('settings.language')}:</label>
+      <select
+        value={i18n.language}
+        onChange={(e) => changeLanguage(e.target.value)}
+        className="px-3 py-1 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+      >
+        <option value="en">English</option>
+        <option value="zh">中文</option>
+      </select>
+    </div>
+  );
+};
+```
+
+```typescript
+// frontend/src/main.tsx - 初始化i18n
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import './index.css';
+import './i18n/config'; // 导入i18n配置
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+```
+
+```typescript
+// 使用示例 - 在组件中使用翻译
+import { useTranslation } from 'react-i18next';
+
+export const LoginPage: React.FC = () => {
+  const { t } = useTranslation();
+
+  return (
+    <div>
+      <h2>{t('app.title')}</h2>
+      <input placeholder={t('auth.username')} />
+      <input placeholder={t('auth.password')} type="password" />
+      <button>{t('auth.login')}</button>
+      <p>{t('auth.noAccount')}</p>
+    </div>
+  );
+};
+```
+
+```typescript
+// 动态更新页面标题
+import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+
+export const usePageTitle = () => {
+  const { t, i18n } = useTranslation();
+
+  useEffect(() => {
+    document.title = t('app.title');
+  }, [i18n.language, t]);
+};
+
+// 在App.tsx中使用
+function App() {
+  usePageTitle(); // 自动根据语言更新页面标题
+
+  return (
+    <AuthProvider>
+      {/* ... */}
+    </AuthProvider>
+  );
+}
+```
+
+**安全最佳实践**:
+1. **密码要求**: 最少6位,建议包含数字和字母
+2. **Token存储**: 使用localStorage(MVP可接受),生产环境建议httpOnly cookie
+3. **Token过期**: 设置为7天,可配置
+4. **HTTPS**: 生产环境必须使用HTTPS传输
+5. **SQL注入防护**: 使用参数化查询
+6. **XSS防护**: 前端输出转义
+7. **CSRF防护**: 使用CSRF token(如使用cookie存储JWT)
+8. **限流**: 登录接口添加rate limiting
+
+**初始管理员账号**:
+```bash
+# 在数据库初始化脚本中创建
+Username: admin
+Password: admin123  # 首次登录后应修改
+Role: admin
+```
+
+**验收标准**:
+- [ ] Environment Debug面板已关闭/移除
+- [ ] LLM服务状态问题已修复或移除
+- [ ] 会话列表和清空按钮有清晰的文字说明
+- [ ] 用户可以注册新账号
+- [ ] 用户可以登录/登出
+- [ ] 用户只能看到自己的聊天记录
+- [ ] 管理员可以看到所有用户的聊天记录
+- [ ] 管理员可以查看用户列表
+- [ ] 密码使用bcrypt加密存储
+- [ ] Token验证正常工作
+- [ ] 未登录用户自动跳转登录页
+- [ ] 普通用户无法访问管理员页面
+- [ ] 所有API都有权限保护
+- [ ] 页面默认显示英语界面
+- [ ] 页面标题正确显示(英文:"Apologize Is All You Need",中文:"道歉助手")
+- [ ] 语言切换功能正常工作
+- [ ] 切换语言后所有文本都正确翻译
+- [ ] 语言偏好保存在localStorage,刷新页面后保持
+- [ ] 所有页面都支持双语切换
+
+**🔴 STOP & COMMIT**: `git commit -m "Phase 9: Bug fixes, i18n support and multi-user authentication system"`
+
+---
+
 ### 版本2.0规划
 1. **移动端支持** - 开发React Native版本
-2. **用户系统** - 添加完整的多用户管理
-3. **云端存储** - 使用真实数据库替代localStorage
+2. **高级认证** - OAuth2.0、SSO、MFA多因素认证
+3. **云端存储** - 迁移到PostgreSQL/MySQL
 4. **高级功能**:
    - 语音输入/输出
    - 图片表情支持
    - 社区分享功能
    - 数据分析看板
-5. **国际化** - 多语言支持
+5. **扩展国际化** - 支持更多语言(日语、韩语、西班牙语等)
 6. **主题定制** - 暗色模式、自定义配色
 
 ### 技术债务
@@ -1195,6 +1840,34 @@ INVITE_CODES=CODE123,CODE456,CODE789
 
 ---
 
-**最后更新**: 2025-10-21  
-**当前状态**: Phase 0 - 准备开始  
-**下一个检查点**: Checkpoint 0.1 - 创建项目结构
+**最后更新**: 2025-11-16
+**当前状态**: Phase 9 - Bug修复、国际化与用户认证系统规划完成
+**下一个检查点**: Checkpoint 9.1 - UI问题修复 或 Checkpoint 9.8 - 国际化支持
+
+## Phase 9 实施优先级
+
+根据实际需求,Phase 9的实施建议按照以下优先级顺序:
+
+### P0 - 立即修复(影响用户体验)
+1. **Checkpoint 9.1**: UI问题修复
+   - 关闭Environment Debug面板
+   - 修复LLM服务状态显示
+   - 添加按钮文字说明
+
+2. **Checkpoint 9.8**: 国际化(i18n)支持
+   - 集成react-i18next
+   - 默认语言设置为英语
+   - 实现语言切换功能
+   - 页面标题国际化
+
+### P1 - 核心功能(用户认证基础)
+3. **Checkpoint 9.2**: 用户认证系统设计
+4. **Checkpoint 9.3**: 后端认证实现
+5. **Checkpoint 9.4**: 数据隔离实现
+6. **Checkpoint 9.5**: 前端认证界面
+
+### P2 - 增强功能(管理员功能)
+7. **Checkpoint 9.6**: 管理员功能实现
+8. **Checkpoint 9.7**: 初始数据和测试
+
+**建议**: 先完成P0级别的UI修复和国际化支持,立即提升用户体验,然后再逐步实现用户认证系统。国际化功能可以与UI修复并行开发。

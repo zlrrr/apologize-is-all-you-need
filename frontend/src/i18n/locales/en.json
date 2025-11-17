@@ -1,0 +1,153 @@
+{
+  "app": {
+    "title": "Apologize Is All You Need",
+    "subtitle": "Unlimited emotional value through AI"
+  },
+  "header": {
+    "subtitle": "I will sincerely understand and support you",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "checking": "Checking...",
+    "backendConnected": "Backend service connected",
+    "backendDisconnected": "Backend service disconnected"
+  },
+  "chat": {
+    "inputPlaceholder": "Type your message...",
+    "send": "Send",
+    "newSession": "New Session",
+    "clearHistory": "Clear History",
+    "sessionList": "Session List",
+    "confirmClear": "Are you sure you want to clear the current session's chat history?",
+    "emptyStateGreeting": "👋 Hello!",
+    "emptyStateSubtitle": "Tell me how you feel, I will listen and understand carefully",
+    "emptyStateHint": "Click 'Session List' in the upper right corner to view history",
+    "styleLabel": "Apology Style",
+    "styleTooltip": "Select AI's apology style",
+    "clearTooltip": "Clear all chat records of the current session",
+    "sessionListTooltip": "View and manage all session history",
+    "newSessionTooltip": "Start a new conversation session"
+  },
+  "styles": {
+    "gentle": "Gentle",
+    "formal": "Formal",
+    "empathetic": "Empathetic"
+  },
+  "session": {
+    "list": "Session List",
+    "new": "New Session",
+    "empty": "No sessions yet",
+    "emptyHint": "Click the button above to create a new session",
+    "delete": "Delete",
+    "confirmDelete": "Are you sure you want to delete this session?",
+    "justNow": "Just now",
+    "hoursAgo": "{{hours}} hours ago",
+    "yesterday": "Yesterday",
+    "messages": "{{count}} messages"
+  },
+  "auth": {
+    "title": "Apology Assistant",
+    "subtitle": "Please enter invite code or password to access",
+    "inviteCode": "Invite Code",
+    "password": "Password",
+    "or": "or",
+    "enter": "Enter App",
+    "error": "Authentication failed, please check invite code or password",
+    "username": "Username",
+    "confirmPassword": "Confirm Password",
+    "login": {
+      "title": "Login",
+      "submit": "Login",
+      "noAccount": "Don't have an account?",
+      "createAccount": "Create one"
+    },
+    "register": {
+      "title": "Register",
+      "submit": "Create Account",
+      "hasAccount": "Already have an account?",
+      "loginHere": "Login here"
+    },
+    "validation": {
+      "required": "Username and password are required",
+      "usernameTooShort": "Username must be at least 3 characters",
+      "passwordTooShort": "Password must be at least 6 characters",
+      "passwordMismatch": "Passwords do not match"
+    },
+    "error": {
+      "generic": "Authentication failed, please try again"
+    },
+    "username": {
+      "placeholder": "Enter your username",
+      "hint": "At least 3 characters, letters, numbers, and underscores only"
+    },
+    "password": {
+      "placeholder": "Enter your password",
+      "hint": "At least 6 characters"
+    },
+    "confirmPassword": {
+      "placeholder": "Confirm your password"
+    },
+    "footer": {
+      "defaultAdmin": "Default admin account available",
+      "adminCredentials": "Username: admin, Password: admin123"
+    }
+  },
+  "common": {
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "loading": "Loading..."
+  },
+  "settings": {
+    "language": "Language",
+    "theme": "Theme"
+  },
+  "user": {
+    "profile": "Profile",
+    "logout": "Logout",
+    "admin": "Admin",
+    "administrator": "Administrator",
+    "adminDashboard": "Admin Dashboard",
+    "confirmLogout": "Are you sure you want to logout?"
+  },
+  "admin": {
+    "welcome": "Welcome",
+    "tabs": {
+      "overview": "Overview",
+      "users": "Users",
+      "sessions": "Sessions"
+    },
+    "overview": {
+      "title": "System Overview"
+    },
+    "stats": {
+      "totalUsers": "Total Users",
+      "activeUsers": "Active Users",
+      "inactiveUsers": "Inactive Users",
+      "admins": "Administrators",
+      "totalSessions": "Total Sessions"
+    },
+    "users": {
+      "title": "User Management",
+      "username": "Username",
+      "role": "Role",
+      "status": "Status",
+      "lastLogin": "Last Login",
+      "actions": "Actions",
+      "active": "Active",
+      "inactive": "Inactive",
+      "never": "Never",
+      "enable": "Enable",
+      "disable": "Disable"
+    },
+    "sessions": {
+      "title": "Session Management",
+      "untitled": "Untitled Session",
+      "user": "User",
+      "messages": "messages",
+      "updated": "Updated",
+      "empty": "No sessions found"
+    }
+  }
+}

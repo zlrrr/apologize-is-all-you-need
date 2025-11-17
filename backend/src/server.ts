@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import chatRoutes from './routes/chat.routes.js';
 import healthRoutes from './routes/health.routes.js';
 import authRoutes from './routes/auth.routes.js';
+import adminRoutes from './routes/admin.routes.js';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware.js';
 import { optionalAuthenticate, isAuthEnabled } from './middleware/auth.middleware.js';
 import logger, { requestLogger } from './utils/logger.js';
@@ -47,6 +48,7 @@ app.use(optionalAuthenticate);
 
 // API Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api/health', healthRoutes);
 app.use('/api/chat', chatRoutes);
 
