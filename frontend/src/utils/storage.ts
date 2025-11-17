@@ -75,7 +75,7 @@ async function fetchAndCacheSessions(): Promise<StoredSession[]> {
   const sessions: StoredSession[] = backendSessions.map((s: any) => ({
     id: s.id,
     name: s.title || generateSessionName(''),
-    messages: [], // Messages loaded separately
+    messages: s.lastMessage ? [{ role: 'assistant', content: s.lastMessage, timestamp: s.updatedAt }] : [], // Store last message for preview
     createdAt: s.createdAt,
     updatedAt: s.updatedAt,
   }));

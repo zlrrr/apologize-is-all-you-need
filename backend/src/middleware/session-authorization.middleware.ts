@@ -20,9 +20,14 @@ export function verifySessionOwnership(req: Request, res: Response, next: NextFu
       return next();
     }
 
-    // Admin can access any session (when using admin API)
-    // This middleware should only apply to regular chat routes
-    if (userRole === 'admin' && req.path.startsWith('/admin')) {
+    // Admin can access any session regardless of owner
+    if (userRole === 'admin') {
+      logger.info('Admin accessing session', {
+        userId,
+        username: req.user!.username,
+        sessionId,
+        path: req.path,
+      });
       return next();
     }
 
@@ -31,7 +36,7 @@ export function verifySessionOwnership(req: Request, res: Response, next: NextFu
     const existingSession = allSessions.find(s => s.id === sessionId);
 
     if (existingSession && existingSession.userId !== userId) {
-      // Session exists but belongs to another user - access denied
+      // Session exists but belongs to another user - access denied for non-admin
       logger.warn('Unauthorized session access attempt', {
         userId,
         username: req.user!.username,

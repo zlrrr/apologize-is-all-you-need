@@ -146,19 +146,35 @@ router.post('/message', authenticate, validateChatMessage, preventSessionCollisi
 /**
  * GET /api/chat/history
  * Get conversation history for a session
- * Requires authentication - users can only access their own sessions
+ * Requires authentication - users can only access their own sessions (admin can access any)
  * Security: Verifies session ownership before access
  */
 router.get('/history', authenticate, validateSessionId, verifySessionOwnership, async (req: Request, res: Response) => {
   try {
     const sessionId = req.query.sessionId as string;
     const userId = req.user!.userId;
+    const userRole = req.user!.role;
 
-    // Get messages for session (with user isolation)
-    const messages = sessionService.getMessages(sessionId, userId);
+    // Admin can access any session - need to find the actual owner
+    let targetUserId = userId;
+    if (userRole === 'admin') {
+      const allSessions = sessionService.getAllSessions();
+      const targetSession = allSessions.find(s => s.id === sessionId);
+      if (targetSession) {
+        targetUserId = targetSession.userId;
+        logger.info('Admin accessing session of another user', {
+          adminId: userId,
+          sessionId,
+          sessionOwnerId: targetUserId,
+        });
+      }
+    }
+
+    // Get messages for session
+    const messages = sessionService.getMessages(sessionId, targetUserId);
 
     // Get session info
-    const session = sessionService.getOrCreateSession(sessionId, userId);
+    const session = sessionService.getOrCreateSession(sessionId, targetUserId);
 
     res.json({
       sessionId,
@@ -226,6 +242,30 @@ router.delete('/session', authenticate, validateSessionId, verifySessionOwnershi
 });
 
 /**
+ * Helper function to format session for API response
+ */
+function formatSessionForResponse(s: any) {
+  // Get last message for preview
+  const lastMessage = s.messages.length > 0
+    ? s.messages[s.messages.length - 1].content
+    : undefined;
+
+  // Get first user message for title if no title set
+  const firstUserMessage = s.messages.find((m: any) => m.role === 'user')?.content;
+  const displayTitle = s.title || (firstUserMessage ? firstUserMessage.substring(0, 30) + (firstUserMessage.length > 30 ? '...' : '') : null);
+
+  return {
+    id: s.id,
+    title: displayTitle,
+    lastMessage: lastMessage,
+    messageCount: s.messages.length,
+    createdAt: s.createdAt,
+    updatedAt: s.updatedAt,
+    // SECURITY: Do NOT expose userId - it's internal information
+  };
+}
+
+/**
  * GET /api/chat/sessions
  * Get all sessions for the authenticated user
  * Requires authentication
@@ -250,28 +290,14 @@ router.get('/sessions', authenticate, async (req: Request, res: Response) => {
       const validSessions = sessions.filter(s => s.userId === userId);
 
       res.json({
-        sessions: validSessions.map(s => ({
-          id: s.id,
-          title: s.title,
-          messageCount: s.messages.length,
-          createdAt: s.createdAt,
-          updatedAt: s.updatedAt,
-          // SECURITY: Do NOT expose userId - it's internal information
-        })),
+        sessions: validSessions.map(formatSessionForResponse),
         count: validSessions.length,
       });
       return;
     }
 
     res.json({
-      sessions: sessions.map(s => ({
-        id: s.id,
-        title: s.title,
-        messageCount: s.messages.length,
-        createdAt: s.createdAt,
-        updatedAt: s.updatedAt,
-        // SECURITY: Do NOT expose userId - it's internal information
-      })),
+      sessions: sessions.map(formatSessionForResponse),
       count: sessions.length,
     });
   } catch (error) {
