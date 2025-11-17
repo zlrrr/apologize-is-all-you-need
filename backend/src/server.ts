@@ -19,6 +19,7 @@ const PORT = process.env.BACKEND_PORT || 5001;
 app.use(requestLogger);
 
 // CORS configuration
+// Always include localhost for development, plus any configured production URLs
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5173',
@@ -26,10 +27,37 @@ const allowedOrigins = [
   process.env.CORS_ORIGIN || '',
 ].filter(origin => origin.length > 0);
 
-app.use(cors({
-  origin: allowedOrigins.length > 0 ? allowedOrigins : '*',
+// IMPORTANT: When credentials: true, we cannot use wildcard '*' origin
+// If no production origins are configured, we'll allow any origin dynamically
+// This is less secure but necessary when FRONTEND_URL is not set
+const corsOptions = {
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    // Allow requests with no origin (like mobile apps, Postman, or same-origin)
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    // If we have configured origins, check against the list
+    if (allowedOrigins.length > 0) {
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        logger.warn('CORS origin blocked', { origin, allowedOrigins });
+        callback(new Error('Not allowed by CORS'));
+      }
+    } else {
+      // No origins configured - allow all (development mode)
+      // Log a warning to remind to set FRONTEND_URL in production
+      logger.warn('CORS: No FRONTEND_URL configured, allowing all origins', { origin });
+      callback(null, true);
+    }
+  },
   credentials: true,
-}));
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
+app.use(cors(corsOptions));
 
 // Body parsing middleware
 app.use(express.json());
@@ -40,7 +68,12 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
   resave: false,
   saveUninitialized: true,
-  cookie: { secure: false } // Set to true in production with HTTPS
+  cookie: {
+    secure: process.env.NODE_ENV === 'production', // true in production with HTTPS
+    httpOnly: true,
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' for cross-origin in production
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
 }));
 
 // Optional authentication middleware (doesn't block if no auth configured)
@@ -92,6 +125,7 @@ app.listen(PORT, () => {
     env: process.env.NODE_ENV || 'development',
     nodeVersion: process.version,
     authEnabled,
+    corsOrigins: allowedOrigins.length > 0 ? allowedOrigins : 'all (not recommended for production)',
   });
 
   console.log(`🚀 Backend server running on http://localhost:${PORT}`);
@@ -105,6 +139,13 @@ app.listen(PORT, () => {
     console.log(`⚠️  Authentication is ENABLED`);
   } else {
     console.log(`⚠️  Authentication is DISABLED (set INVITE_CODES or ACCESS_PASSWORD to enable)`);
+  }
+
+  // CORS configuration info
+  if (allowedOrigins.length > 0) {
+    console.log(`🌐 CORS allowed origins: ${allowedOrigins.join(', ')}`);
+  } else {
+    console.log(`⚠️  CORS: No FRONTEND_URL configured - allowing all origins (set FRONTEND_URL in production!)`);
   }
 });
 
