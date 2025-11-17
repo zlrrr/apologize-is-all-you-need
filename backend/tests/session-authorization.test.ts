@@ -3,7 +3,7 @@
  * Tests for session ownership verification and access control
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import express from 'express';
 import { DatabaseService } from '../src/database/database.service';
@@ -34,15 +34,15 @@ describe('Session Authorization', () => {
     }
 
     // Initialize database
-    db = DatabaseService.getInstance();
-    await db.initialize(testDbPath);
+    db = new DatabaseService(testDbPath);
+    await db.initialize();
 
     // Create Express app
     app = express();
     app.use(cors({ credentials: true }));
     app.use(express.json());
     app.use(session({
-      secret: 'test-secret',
+      secret: 'test-session-secret-' + Math.random().toString(36).substring(2),
       resave: false,
       saveUninitialized: true,
       cookie: { secure: false }
@@ -56,6 +56,12 @@ describe('Session Authorization', () => {
   });
 
   beforeEach(async () => {
+    // Clean up test data before each test (keep admin user from environment)
+    db.execute('DELETE FROM messages');
+    db.execute('DELETE FROM sessions');
+    const adminUsername = process.env.DEFAULT_ADMIN_USERNAME || 'test_admin_user';
+    db.execute('DELETE FROM users WHERE username NOT IN (?)', [adminUsername]);
+
     // Register test users
     const user1Res = await request(app)
       .post('/api/auth/register')
@@ -67,21 +73,21 @@ describe('Session Authorization', () => {
       .send({ username: 'testuser2', password: 'password2' });
     user2Token = user2Res.body.token;
 
-    // Create admin user manually
-    const bcrypt = await import('bcrypt');
-    const adminPasswordHash = await bcrypt.hash('adminpass', 10);
-    db.execute(
-      'INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)',
-      ['testadmin', adminPasswordHash, 'admin']
-    );
-
+    // Use default admin (created from environment variable in vitest.config.ts)
+    // Login as admin using the test password from vitest.config.ts
+    const adminPassword = process.env.DEFAULT_ADMIN_PASSWORD || 'TestP@ssw0rd!2024#Secure';
     const adminRes = await request(app)
       .post('/api/auth/login')
-      .send({ username: 'testadmin', password: 'adminpass' });
+      .send({ username: adminUsername, password: adminPassword });
     adminToken = adminRes.body.token;
   });
 
   afterAll(async () => {
+    // Close database connection
+    if (db && db.isInitialized()) {
+      db.close();
+    }
+
     // Clean up test database
     if (fs.existsSync(testDbPath)) {
       fs.unlinkSync(testDbPath);

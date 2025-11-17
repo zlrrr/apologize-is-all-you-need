@@ -246,7 +246,8 @@ router.get('/status', async (req: Request, res: Response) => {
   if (token) {
     try {
       const jwt = await import('jsonwebtoken');
-      const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+      // Use the same JWT_SECRET as auth.middleware.ts
+      const JWT_SECRET = process.env.JWT_SECRET || 'insecure-dev-secret-DO-NOT-USE-IN-PRODUCTION';
       jwt.default.verify(token, JWT_SECRET);
       isAuthenticated = true;
     } catch (error) {

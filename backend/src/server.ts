@@ -63,9 +63,22 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Session middleware
+// Session middleware with security validation
+const SESSION_SECRET = process.env.SESSION_SECRET || (() => {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const defaultSecret = 'insecure-dev-session-secret-DO-NOT-USE-IN-PRODUCTION';
+
+  if (isProduction) {
+    logger.error('CRITICAL SECURITY ERROR: SESSION_SECRET not set in production!');
+    throw new Error('SESSION_SECRET environment variable is required in production');
+  }
+
+  logger.warn('⚠️  Using default SESSION_SECRET for development. DO NOT use in production!');
+  return defaultSecret;
+})();
+
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
+  secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: true,
   cookie: {

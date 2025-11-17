@@ -3,7 +3,7 @@
  * Tests to verify users can only see their own sessions
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import express from 'express';
 import { DatabaseService } from '../src/database/database.service';
