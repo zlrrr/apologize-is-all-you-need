@@ -3,8 +3,8 @@
  * Tests for secure admin account creation from environment variables
  */
 
-import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
-import { DatabaseService } from '../src/database/database.service';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { DatabaseService } from '../src/database/database.service.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -18,19 +18,24 @@ describe('Admin Credentials Configuration', () => {
       fs.unlinkSync(testDbPath);
     }
 
-    // Create new database instance
-    db = DatabaseService.getInstance();
+    // Create new database instance for testing
+    db = new DatabaseService(testDbPath);
   });
 
   afterEach(async () => {
+    // Close database connection
+    if (db && db.isInitialized()) {
+      db.close();
+    }
+
     // Clean up test database
     if (fs.existsSync(testDbPath)) {
       fs.unlinkSync(testDbPath);
     }
 
-    // Reset environment variables
-    delete process.env.DEFAULT_ADMIN_USERNAME;
-    delete process.env.DEFAULT_ADMIN_PASSWORD;
+    // Reset environment variables to test defaults
+    process.env.DEFAULT_ADMIN_USERNAME = 'admin';
+    process.env.DEFAULT_ADMIN_PASSWORD = 'admin123';
   });
 
   it('should create admin with credentials from environment variables', async () => {
@@ -39,7 +44,7 @@ describe('Admin Credentials Configuration', () => {
     process.env.DEFAULT_ADMIN_PASSWORD = 'SecurePass123!';
 
     // Initialize database (this should create admin)
-    await db.initialize(testDbPath);
+    await db.initialize();
 
     // Verify admin was created
     const admin = db.queryOne<any>(
@@ -57,13 +62,13 @@ describe('Admin Credentials Configuration', () => {
   it('should generate random password if not configured', async () => {
     // Set only username, no password
     process.env.DEFAULT_ADMIN_USERNAME = 'autoadmin';
-    // Do NOT set DEFAULT_ADMIN_PASSWORD
+    delete process.env.DEFAULT_ADMIN_PASSWORD;
 
     // Capture console output to verify password is logged
-    const logSpy = jest.spyOn(console, 'log');
+    const logSpy = vi.spyOn(console, 'warn');
 
     // Initialize database
-    await db.initialize(testDbPath);
+    await db.initialize();
 
     // Verify admin was created
     const admin = db.queryOne<any>(
@@ -86,7 +91,7 @@ describe('Admin Credentials Configuration', () => {
     delete process.env.DEFAULT_ADMIN_USERNAME;
 
     // Initialize database
-    await db.initialize(testDbPath);
+    await db.initialize();
 
     // Verify no admin was created
     const admins = db.query<any>(
@@ -102,7 +107,7 @@ describe('Admin Credentials Configuration', () => {
     process.env.DEFAULT_ADMIN_PASSWORD = 'FirstPassword123!';
 
     // First initialization
-    await db.initialize(testDbPath);
+    await db.initialize();
 
     const firstAdmin = db.queryOne<any>(
       'SELECT * FROM users WHERE username = ?',
@@ -110,11 +115,17 @@ describe('Admin Credentials Configuration', () => {
     );
     const firstPasswordHash = firstAdmin?.password_hash;
 
+    // Close the database
+    db.close();
+
+    // Recreate database instance for second initialization
+    db = new DatabaseService(testDbPath);
+
     // Change password in environment
     process.env.DEFAULT_ADMIN_PASSWORD = 'DifferentPassword456!';
 
     // Second initialization (should NOT recreate)
-    await db.initialize(testDbPath);
+    await db.initialize();
 
     const secondAdmin = db.queryOne<any>(
       'SELECT * FROM users WHERE username = ?',

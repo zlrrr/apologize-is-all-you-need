@@ -11,5 +11,13 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
     },
+    // Set environment variables for tests
+    env: {
+      // Admin credentials for testing
+      DEFAULT_ADMIN_USERNAME: 'admin',
+      DEFAULT_ADMIN_PASSWORD: 'admin123',
+      // JWT secret for testing
+      JWT_SECRET: 'test-jwt-secret-key',
+    },
   },
 });

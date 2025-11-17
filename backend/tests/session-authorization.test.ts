@@ -3,7 +3,7 @@
  * Tests for session ownership verification and access control
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import express from 'express';
 import { DatabaseService } from '../src/database/database.service';
@@ -34,8 +34,8 @@ describe('Session Authorization', () => {
     }
 
     // Initialize database
-    db = DatabaseService.getInstance();
-    await db.initialize(testDbPath);
+    db = new DatabaseService(testDbPath);
+    await db.initialize();
 
     // Create Express app
     app = express();
@@ -56,6 +56,11 @@ describe('Session Authorization', () => {
   });
 
   beforeEach(async () => {
+    // Clean up test data before each test (keep admin user from environment)
+    db.execute('DELETE FROM messages');
+    db.execute('DELETE FROM sessions');
+    db.execute('DELETE FROM users WHERE username NOT IN (?, ?)', ['admin', 'testadmin']);
+
     // Register test users
     const user1Res = await request(app)
       .post('/api/auth/register')
@@ -67,21 +72,20 @@ describe('Session Authorization', () => {
       .send({ username: 'testuser2', password: 'password2' });
     user2Token = user2Res.body.token;
 
-    // Create admin user manually
-    const bcrypt = await import('bcrypt');
-    const adminPasswordHash = await bcrypt.hash('adminpass', 10);
-    db.execute(
-      'INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)',
-      ['testadmin', adminPasswordHash, 'admin']
-    );
-
+    // Use default admin (created from environment variable DEFAULT_ADMIN_USERNAME=admin)
+    // Login as admin using the test password from vitest.config.ts
     const adminRes = await request(app)
       .post('/api/auth/login')
-      .send({ username: 'testadmin', password: 'adminpass' });
+      .send({ username: 'admin', password: 'admin123' });
     adminToken = adminRes.body.token;
   });
 
   afterAll(async () => {
+    // Close database connection
+    if (db && db.isInitialized()) {
+      db.close();
+    }
+
     // Clean up test database
     if (fs.existsSync(testDbPath)) {
       fs.unlinkSync(testDbPath);
