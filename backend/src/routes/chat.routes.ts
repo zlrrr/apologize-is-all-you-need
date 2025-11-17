@@ -229,6 +229,7 @@ router.delete('/session', authenticate, validateSessionId, verifySessionOwnershi
  * GET /api/chat/sessions
  * Get all sessions for the authenticated user
  * Requires authentication
+ * Security: Only returns user's own sessions, does not expose userId
  */
 router.get('/sessions', authenticate, async (req: Request, res: Response) => {
   try {
@@ -237,6 +238,31 @@ router.get('/sessions', authenticate, async (req: Request, res: Response) => {
     // Get user's sessions (with data isolation)
     const sessions = sessionService.getUserSessions(userId);
 
+    // Verify all returned sessions belong to current user
+    const invalidSessions = sessions.filter(s => s.userId !== userId);
+    if (invalidSessions.length > 0) {
+      logger.error('Data isolation breach detected in session list', {
+        userId,
+        invalidSessionCount: invalidSessions.length,
+        invalidSessionIds: invalidSessions.map(s => s.id),
+      });
+      // Return only valid sessions
+      const validSessions = sessions.filter(s => s.userId === userId);
+
+      res.json({
+        sessions: validSessions.map(s => ({
+          id: s.id,
+          title: s.title,
+          messageCount: s.messages.length,
+          createdAt: s.createdAt,
+          updatedAt: s.updatedAt,
+          // SECURITY: Do NOT expose userId - it's internal information
+        })),
+        count: validSessions.length,
+      });
+      return;
+    }
+
     res.json({
       sessions: sessions.map(s => ({
         id: s.id,
@@ -244,10 +270,12 @@ router.get('/sessions', authenticate, async (req: Request, res: Response) => {
         messageCount: s.messages.length,
         createdAt: s.createdAt,
         updatedAt: s.updatedAt,
+        // SECURITY: Do NOT expose userId - it's internal information
       })),
       count: sessions.length,
     });
   } catch (error) {
+    logger.error('Failed to get sessions', { error, userId: req.user!.userId });
     throw error;
   }
 });
