@@ -85,6 +85,31 @@ export class SessionService {
   }
 
   /**
+   * Get an existing session without creating a new one
+   * Data isolation: Users can only access their own sessions
+   */
+  getSession(sessionId: string, userId: number): Session | undefined {
+    try {
+      // Try to get existing session
+      const dbSession = this.db.queryOne<DBSession>(
+        'SELECT * FROM sessions WHERE id = ? AND user_id = ?',
+        [sessionId, userId]
+      );
+
+      if (!dbSession) {
+        return undefined;
+      }
+
+      // Load messages for the session
+      const messages = this.getMessages(sessionId, userId);
+      return this.toSession(dbSession, messages);
+    } catch (error) {
+      logger.error('Failed to get session', { error, sessionId, userId });
+      throw new Error('Failed to get session');
+    }
+  }
+
+  /**
    * Add a message to a session
    * Data isolation: Messages are associated with the session owner
    */
