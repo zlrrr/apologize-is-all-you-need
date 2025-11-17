@@ -1871,3 +1871,542 @@ Role: admin
 8. **Checkpoint 9.7**: 初始数据和测试
 
 **建议**: 先完成P0级别的UI修复和国际化支持,立即提升用户体验,然后再逐步实现用户认证系统。国际化功能可以与UI修复并行开发。
+
+---
+
+## Phase 10: 安全增强计划 (Security Hardening)
+
+**优先级**: P0 - 严重安全漏洞修复
+**预计时间**: 4-6小时
+**状态**: 规划中
+
+### 背景
+
+在Phase 9完成用户认证系统后，发现以下安全问题需要立即修复：
+
+1. **硬编码的默认管理员凭据** - 默认admin账号密码在前端和后端多处硬编码暴露
+2. **Session访问控制漏洞** - 缺少明确的Session所有权验证，存在潜在的水平越权风险
+
+### 安全问题详细分析
+
+#### 问题1: 硬编码Admin凭据 (CWE-798)
+
+**影响范围**:
+- `frontend/src/i18n/locales/en.json` - 显示 "Username: admin, Password: admin123"
+- `frontend/src/i18n/locales/zh.json` - 显示 "用户名: admin, 密码: admin123"
+- `backend/src/database/schema.sql` - 注释中包含密码
+- `backend/src/database/database.service.ts` - 硬编码密码 'admin123'
+
+**风险等级**: 🔴 高危
+- 攻击者可以通过查看前端代码轻易获取管理员凭据
+- 生产环境中无法更改默认密码（硬编码在代码中）
+- 违反安全最佳实践
+
+**修复方案**:
+1. 从前端i18n文件中移除所有凭据显示
+2. 将默认admin密码改为从环境变量读取
+3. 首次启动时如果未配置则生成随机密码并记录到日志
+4. 添加强制密码修改机制
+
+#### 问题2: Session水平越权漏洞 (CWE-639)
+
+**当前实现**:
+```typescript
+// session.service.ts:50
+getOrCreateSession(sessionId: string, userId: number): Session {
+  const dbSession = this.db.queryOne<DBSession>(
+    'SELECT * FROM sessions WHERE id = ? AND user_id = ?',
+    [sessionId, userId]
+  );
+
+  if (dbSession) {
+    return this.toSession(dbSession, messages);
+  }
+
+  // 问题: 如果session存在但不属于userId，会创建同ID的新session
+  this.db.execute(
+    'INSERT INTO sessions (id, user_id, title) VALUES (?, ?, ?)',
+    [sessionId, userId, null]
+  );
+}
+```
+
+**漏洞场景**:
+1. 用户A创建session: `abc-123` (user_id=1)
+2. 用户B知道sessionId `abc-123`
+3. 用户B尝试访问该session
+4. 系统为用户B创建一个新的session，同样ID为 `abc-123` (user_id=2)
+5. 虽然数据隔离了，但存在SessionID冲突和混淆
+
+**风险等级**: 🟡 中危
+- 不会泄露其他用户数据（数据层面有隔离）
+- 但会造成SessionID混淆和意外行为
+- 缺少明确的访问控制反馈
+
+**修复方案**:
+1. 添加Session所有权验证中间件
+2. 在访问session前检查是否存在且属于当前用户
+3. 如果session存在但不属于当前用户 → 返回403 Forbidden
+4. 只允许创建UUID格式的新session
+
+### Checkpoint 10.1: 移除硬编码Admin凭据 [2小时]
+
+**目标**: 使用环境变量配置默认管理员账号
+
+#### 测试先行 (TDD)
+
+```typescript
+// backend/tests/admin-credentials.test.ts
+describe('Admin Credentials Configuration', () => {
+  it('should create admin with credentials from environment variables', () => {
+    process.env.DEFAULT_ADMIN_USERNAME = 'myadmin';
+    process.env.DEFAULT_ADMIN_PASSWORD = 'SecurePass123!';
+
+    // Test initialization
+    // Verify admin is created with env credentials
+  });
+
+  it('should generate random password if not configured', () => {
+    delete process.env.DEFAULT_ADMIN_PASSWORD;
+
+    // Test initialization
+    // Verify random password is generated and logged
+  });
+
+  it('should not display credentials in frontend', () => {
+    // Load i18n files
+    // Verify no hardcoded credentials exist
+  });
+});
+```
+
+#### 实现步骤
+
+**步骤1: 更新环境变量配置**
+```bash
+# backend/.env.example
+# Default Admin Configuration (optional)
+# If not set, admin account will not be created automatically
+DEFAULT_ADMIN_USERNAME=admin
+DEFAULT_ADMIN_PASSWORD=   # Leave empty to generate random password
+```
+
+**步骤2: 修改database.service.ts**
+```typescript
+// backend/src/database/database.service.ts
+private async createDefaultAdmin() {
+  try {
+    const adminUsername = process.env.DEFAULT_ADMIN_USERNAME;
+    const adminPassword = process.env.DEFAULT_ADMIN_PASSWORD;
+
+    if (!adminUsername) {
+      logger.info('DEFAULT_ADMIN_USERNAME not set, skipping admin creation');
+      return;
+    }
+
+    // Check if admin exists
+    const admin = this.queryOne<User>(
+      'SELECT * FROM users WHERE username = ?',
+      [adminUsername]
+    );
+
+    if (!admin) {
+      const bcrypt = await import('bcrypt');
+      const crypto = await import('crypto');
+
+      // Generate random password if not provided
+      const password = adminPassword || crypto.randomBytes(16).toString('hex');
+      const passwordHash = await bcrypt.hash(password, 10);
+
+      this.execute(
+        'INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)',
+        [adminUsername, passwordHash, 'admin']
+      );
+
+      if (!adminPassword) {
+        logger.warn('⚠️  DEFAULT ADMIN CREDENTIALS ⚠️', {
+          username: adminUsername,
+          password: password,
+          message: 'SAVE THESE CREDENTIALS! Password was auto-generated.'
+        });
+      } else {
+        logger.info('Default admin user created', { username: adminUsername });
+        logger.warn('SECURITY: Please change the default admin password immediately!');
+      }
+    }
+  } catch (error) {
+    logger.error('Failed to create default admin', { error });
+  }
+}
+```
+
+**步骤3: 更新frontend i18n文件**
+```json
+// frontend/src/i18n/locales/en.json
+{
+  "auth": {
+    "defaultAdmin": "Default admin account is configured by system administrator",
+    // Remove: "adminCredentials": "Username: admin, Password: admin123"
+  }
+}
+```
+
+**步骤4: 更新schema.sql**
+```sql
+-- Remove hardcoded admin insert
+-- Default admin creation is now handled by database.service.ts
+-- using environment variables
+
+-- Insert default admin user
+-- REMOVED: Hardcoded credentials moved to environment configuration
+-- See backend/.env.example for DEFAULT_ADMIN_USERNAME and DEFAULT_ADMIN_PASSWORD
+```
+
+**验收标准**:
+- [ ] 前端不再显示任何hardcoded凭据
+- [ ] Admin账号可通过环境变量配置
+- [ ] 未配置密码时自动生成随机密码并记录到日志
+- [ ] schema.sql移除hardcoded admin插入
+- [ ] 所有测试通过
+
+### Checkpoint 10.2: Session所有权验证 [2小时]
+
+**目标**: 防止session ID冲突和未授权访问
+
+#### 测试先行 (TDD)
+
+```typescript
+// backend/tests/session-authorization.test.ts
+describe('Session Authorization', () => {
+  let user1Token: string;
+  let user2Token: string;
+  let user1SessionId: string;
+
+  beforeEach(async () => {
+    // Create two users
+    const user1 = await registerUser('user1', 'pass1');
+    const user2 = await registerUser('user2', 'pass2');
+    user1Token = user1.token;
+    user2Token = user2.token;
+  });
+
+  it('should allow user to access own session', async () => {
+    // User1 creates a session
+    const res = await request(app)
+      .post('/api/chat/message')
+      .set('Authorization', `Bearer ${user1Token}`)
+      .send({ message: 'test' });
+
+    user1SessionId = res.body.sessionId;
+    expect(res.status).toBe(200);
+
+    // User1 accesses the session
+    const history = await request(app)
+      .get(`/api/chat/history?sessionId=${user1SessionId}`)
+      .set('Authorization', `Bearer ${user1Token}`);
+
+    expect(history.status).toBe(200);
+  });
+
+  it('should deny access to other users session', async () => {
+    // User1 creates a session
+    const res = await request(app)
+      .post('/api/chat/message')
+      .set('Authorization', `Bearer ${user1Token}`)
+      .send({ message: 'test' });
+
+    user1SessionId = res.body.sessionId;
+
+    // User2 tries to access user1's session
+    const history = await request(app)
+      .get(`/api/chat/history?sessionId=${user1SessionId}`)
+      .set('Authorization', `Bearer ${user2Token}`);
+
+    expect(history.status).toBe(403);
+    expect(history.body.error).toBe('Forbidden');
+  });
+
+  it('should prevent session ID collision', async () => {
+    // User1 creates session
+    const sessionId = 'test-session-id';
+    await request(app)
+      .post('/api/chat/message')
+      .set('Authorization', `Bearer ${user1Token}`)
+      .send({ message: 'test', sessionId });
+
+    // User2 tries to create session with same ID
+    const res = await request(app)
+      .post('/api/chat/message')
+      .set('Authorization', `Bearer ${user2Token}`)
+      .send({ message: 'test', sessionId });
+
+    expect(res.status).toBe(403);
+    expect(res.body.message).toContain('already exists');
+  });
+
+  it('should allow admin to access any session', async () => {
+    // User1 creates session
+    const res = await request(app)
+      .post('/api/chat/message')
+      .set('Authorization', `Bearer ${user1Token}`)
+      .send({ message: 'test' });
+
+    const sessionId = res.body.sessionId;
+
+    // Admin accesses any session via admin API
+    const adminRes = await request(app)
+      .get(`/api/admin/sessions/${sessionId}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(adminRes.status).toBe(200);
+  });
+});
+```
+
+#### 实现步骤
+
+**步骤1: 创建Session授权中间件**
+```typescript
+// backend/src/middleware/session-authorization.middleware.ts
+import { Request, Response, NextFunction } from 'express';
+import { sessionService } from '../services/session.service.js';
+import logger from '../utils/logger.js';
+
+/**
+ * Verify session ownership
+ * Checks if the requested session exists and belongs to the authenticated user
+ * Admin users can access any session
+ */
+export function verifySessionOwnership(req: Request, res: Response, next: NextFunction) {
+  try {
+    const sessionId = req.query.sessionId as string || req.body.sessionId;
+    const userId = req.user!.userId;
+    const isAdmin = req.user!.role === 'admin';
+
+    if (!sessionId) {
+      // No sessionId provided - will create new session
+      return next();
+    }
+
+    // Admin can access any session
+    if (isAdmin) {
+      return next();
+    }
+
+    // Check if session exists globally
+    const allSessions = sessionService.getAllSessions();
+    const existingSession = allSessions.find(s => s.id === sessionId);
+
+    if (existingSession && existingSession.userId !== userId) {
+      // Session exists but belongs to another user
+      logger.warn('Unauthorized session access attempt', {
+        userId,
+        sessionId,
+        ownerId: existingSession.userId,
+        ip: req.ip
+      });
+
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You do not have permission to access this session'
+      });
+    }
+
+    // Session doesn't exist or belongs to current user
+    next();
+  } catch (error) {
+    logger.error('Session authorization error', { error });
+    next(error);
+  }
+}
+
+/**
+ * Prevent session ID collision when creating new sessions
+ * Ensures sessionId is unique across all users
+ */
+export function preventSessionCollision(req: Request, res: Response, next: NextFunction) {
+  try {
+    const sessionId = req.body.sessionId;
+
+    if (!sessionId) {
+      // No sessionId provided - will auto-generate unique UUID
+      return next();
+    }
+
+    // Check if session exists globally
+    const allSessions = sessionService.getAllSessions();
+    const existingSession = allSessions.find(s => s.id === sessionId);
+
+    if (existingSession) {
+      // Session ID already exists
+      const userId = req.user!.userId;
+
+      if (existingSession.userId === userId) {
+        // User's own session - allow
+        return next();
+      }
+
+      // Session ID collision
+      logger.warn('Session ID collision detected', {
+        userId,
+        sessionId,
+        existingOwnerId: existingSession.userId,
+        ip: req.ip
+      });
+
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'This session ID already exists. Please use a different ID or let the system generate one.'
+      });
+    }
+
+    next();
+  } catch (error) {
+    logger.error('Session collision check error', { error });
+    next(error);
+  }
+}
+```
+
+**步骤2: 应用中间件到路由**
+```typescript
+// backend/src/routes/chat.routes.ts
+import { verifySessionOwnership, preventSessionCollision } from '../middleware/session-authorization.middleware.js';
+
+// POST /api/chat/message - add collision check
+router.post('/message',
+  authenticate,
+  validateChatMessage,
+  preventSessionCollision,  // NEW: Prevent session ID collision
+  async (req: Request, res: Response, next: NextFunction) => {
+    // ... existing code
+  }
+);
+
+// GET /api/chat/history - add ownership check
+router.get('/history',
+  authenticate,
+  validateSessionId,
+  verifySessionOwnership,  // NEW: Verify session ownership
+  async (req: Request, res: Response) => {
+    // ... existing code
+  }
+);
+
+// DELETE /api/chat/history - add ownership check
+router.delete('/history',
+  authenticate,
+  validateSessionId,
+  verifySessionOwnership,  // NEW: Verify session ownership
+  async (req: Request, res: Response) => {
+    // ... existing code
+  }
+);
+
+// DELETE /api/chat/session - add ownership check
+router.delete('/session',
+  authenticate,
+  validateSessionId,
+  verifySessionOwnership,  // NEW: Verify session ownership
+  async (req: Request, res: Response) => {
+    // ... existing code
+  }
+);
+```
+
+**步骤3: 更新SessionService**
+```typescript
+// backend/src/services/session.service.ts
+getOrCreateSession(sessionId: string, userId: number): Session {
+  try {
+    // Try to get existing session
+    const dbSession = this.db.queryOne<DBSession>(
+      'SELECT * FROM sessions WHERE id = ? AND user_id = ?',
+      [sessionId, userId]
+    );
+
+    if (dbSession) {
+      const messages = this.getMessages(sessionId, userId);
+      return this.toSession(dbSession, messages);
+    }
+
+    // MODIFIED: Check if session exists with different owner
+    const existingSession = this.db.queryOne<DBSession>(
+      'SELECT * FROM sessions WHERE id = ?',
+      [sessionId]
+    );
+
+    if (existingSession) {
+      // Session exists but belongs to another user
+      throw new Error(`Session ${sessionId} already exists and belongs to another user`);
+    }
+
+    // Create new session - session doesn't exist
+    this.db.execute(
+      'INSERT INTO sessions (id, user_id, title) VALUES (?, ?, ?)',
+      [sessionId, userId, null]
+    );
+
+    logger.info('New session created', { sessionId, userId });
+
+    return {
+      id: sessionId,
+      userId,
+      title: undefined,
+      messages: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  } catch (error) {
+    logger.error('Failed to get or create session', { error, sessionId, userId });
+    throw error;
+  }
+}
+```
+
+**验收标准**:
+- [ ] 用户只能访问自己的session
+- [ ] 尝试访问其他用户session返回403
+- [ ] 不允许session ID冲突
+- [ ] Admin可以访问任意session（通过admin API）
+- [ ] 所有相关路由都应用了授权检查
+- [ ] 所有测试通过
+
+### Checkpoint 10.3: 安全审计和文档更新 [1小时]
+
+**任务清单**:
+- [ ] 运行安全扫描工具检查其他漏洞
+- [ ] 更新SECURITY.md文档
+- [ ] 更新API文档标注授权要求
+- [ ] 添加安全最佳实践文档
+- [ ] 记录修复的漏洞和解决方案
+
+**交付物**:
+```
+docs/
+├── SECURITY.md              # 安全政策和漏洞报告指南
+├── security-audit.md        # 安全审计报告
+└── authentication-system-design.md  # 更新授权部分
+```
+
+### 安全检查清单
+
+**在部署前验证**:
+- [ ] 前端不包含任何硬编码凭据
+- [ ] 默认admin密码可配置或自动生成
+- [ ] Session访问控制正常工作
+- [ ] 所有敏感操作都需要认证
+- [ ] 用户只能访问自己的资源
+- [ ] Admin权限正确实现
+- [ ] 日志中不包含敏感信息（密码等）
+- [ ] 环境变量正确配置示例
+- [ ] 安全文档已更新
+
+**🔴 STOP & TEST**: 完整的安全测试
+**🔴 STOP & COMMIT**: `git commit -m "Phase 10: Security hardening - Remove hardcoded credentials and fix session authorization"`
+
+---
+
+**最后更新**: 2025-11-17
+**当前状态**: Phase 10 - 安全增强计划已制定
+**下一个检查点**: Checkpoint 10.1 - 移除硬编码Admin凭据

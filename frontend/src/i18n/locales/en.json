@@ -87,8 +87,8 @@
       "placeholder": "Confirm your password"
     },
     "footer": {
-      "defaultAdmin": "Default admin account available",
-      "adminCredentials": "Username: admin, Password: admin123"
+      "defaultAdmin": "Default admin account is configured by system administrator",
+      "contactAdmin": "Contact your system administrator for admin credentials"
     }
   },
   "common": {

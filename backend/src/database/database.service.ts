@@ -77,6 +77,9 @@ export class DatabaseService {
 
   /**
    * Create default admin user with bcrypt hashed password
+   * Uses environment variables for configuration:
+   * - DEFAULT_ADMIN_USERNAME: Admin username (optional, skips creation if not set)
+   * - DEFAULT_ADMIN_PASSWORD: Admin password (optional, generates random if not set)
    */
   private async createDefaultAdmin(): Promise<void> {
     if (!this.db) {
@@ -84,24 +87,52 @@ export class DatabaseService {
     }
 
     try {
+      const adminUsername = process.env.DEFAULT_ADMIN_USERNAME;
+      const adminPassword = process.env.DEFAULT_ADMIN_PASSWORD;
+
+      if (!adminUsername) {
+        logger.info('DEFAULT_ADMIN_USERNAME not set, skipping admin creation');
+        return;
+      }
+
       // Check if admin already exists
       const stmt = this.db.prepare('SELECT id FROM users WHERE username = ?');
-      const admin = stmt.get('admin');
+      const admin = stmt.get(adminUsername);
 
       if (!admin) {
-        // Import bcrypt dynamically to hash default password
+        // Import required modules
         const bcrypt = await import('bcrypt');
-        const passwordHash = await bcrypt.hash('admin123', 10);
+        const crypto = await import('crypto');
+
+        // Generate random password if not provided
+        const password = adminPassword || crypto.randomBytes(16).toString('hex');
+        const passwordHash = await bcrypt.hash(password, 10);
 
         // Insert default admin
         const insertStmt = this.db.prepare(`
           INSERT INTO users (username, password_hash, role)
           VALUES (?, ?, ?)
         `);
-        insertStmt.run('admin', passwordHash, 'admin');
+        insertStmt.run(adminUsername, passwordHash, 'admin');
 
-        logger.info('Default admin user created', { username: 'admin' });
-        logger.warn('SECURITY: Please change the default admin password immediately!');
+        if (!adminPassword) {
+          logger.warn('⚠️  DEFAULT ADMIN CREDENTIALS ⚠️', {
+            username: adminUsername,
+            password: password,
+            message: 'SAVE THESE CREDENTIALS! Password was auto-generated.',
+          });
+          console.warn('\n' + '='.repeat(80));
+          console.warn('⚠️  AUTO-GENERATED ADMIN CREDENTIALS - SAVE IMMEDIATELY! ⚠️');
+          console.warn('='.repeat(80));
+          console.warn(`Username: ${adminUsername}`);
+          console.warn(`Password: ${password}`);
+          console.warn('='.repeat(80) + '\n');
+        } else {
+          logger.info('Default admin user created', { username: adminUsername });
+          logger.warn('SECURITY: Please change the default admin password immediately!');
+        }
+      } else {
+        logger.debug('Admin user already exists, skipping creation', { username: adminUsername });
       }
     } catch (error) {
       logger.error('Failed to create default admin', { error });
