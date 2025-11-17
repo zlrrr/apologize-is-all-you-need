@@ -25,6 +25,7 @@ export const AdminDashboard: React.FC<{ onClose: () => void }> = ({ onClose }) =
   const [sessions, setSessions] = useState<AdminSession[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
 
   // Redirect if not admin
   useEffect(() => {
@@ -193,11 +194,21 @@ export const AdminDashboard: React.FC<{ onClose: () => void }> = ({ onClose }) =
               {activeTab === 'users' && (
                 <UsersTab users={users} onToggleStatus={handleToggleUserStatus} />
               )}
-              {activeTab === 'sessions' && <SessionsTab sessions={sessions} />}
+              {activeTab === 'sessions' && (
+                <SessionsTab sessions={sessions} onViewSession={setSelectedSessionId} />
+              )}
             </>
           )}
         </div>
       </div>
+
+      {/* Session Details Modal */}
+      {selectedSessionId && (
+        <SessionDetailsModal
+          sessionId={selectedSessionId}
+          onClose={() => setSelectedSessionId(null)}
+        />
+      )}
     </div>
   );
 };
@@ -364,7 +375,10 @@ const UsersTab: React.FC<{
 };
 
 // Sessions Tab Component
-const SessionsTab: React.FC<{ sessions: AdminSession[] }> = ({ sessions }) => {
+const SessionsTab: React.FC<{
+  sessions: AdminSession[];
+  onViewSession: (sessionId: string) => void;
+}> = ({ sessions, onViewSession }) => {
   const { t } = useTranslation();
 
   return (
@@ -374,7 +388,9 @@ const SessionsTab: React.FC<{ sessions: AdminSession[] }> = ({ sessions }) => {
         {sessions.map((session) => (
           <div
             key={session.id}
-            className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-lg transition-shadow"
+            className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-lg hover:border-purple-300 transition-all cursor-pointer"
+            onClick={() => onViewSession(session.id)}
+            title={t('admin.sessions.clickToView')}
           >
             <div className="flex items-start justify-between mb-2">
               <h4 className="font-medium text-gray-800 truncate">
@@ -400,6 +416,165 @@ const SessionsTab: React.FC<{ sessions: AdminSession[] }> = ({ sessions }) => {
           {t('admin.sessions.empty')}
         </div>
       )}
+    </div>
+  );
+};
+
+// Session Details Modal Component
+const SessionDetailsModal: React.FC<{
+  sessionId: string;
+  onClose: () => void;
+}> = ({ sessionId, onClose }) => {
+  const { t } = useTranslation();
+  const [session, setSession] = useState<{
+    id: string;
+    userId: number;
+    title?: string;
+    messages: Array<{ role: string; content: string }>;
+    createdAt: string;
+    updatedAt: string;
+  } | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadSessionDetails();
+  }, [sessionId]);
+
+  const loadSessionDetails = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const data = await getSessionDetails(sessionId);
+      setSession(data.session);
+      logger.info('[AdminDashboard] Session details loaded', { sessionId });
+    } catch (err: any) {
+      setError(err.message);
+      logger.error('[AdminDashboard] Failed to load session details', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60] p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-white">
+              {t('admin.sessions.details')}
+            </h2>
+            {session && (
+              <p className="text-indigo-100 text-sm mt-1">
+                {session.title || t('admin.sessions.untitled')} (User #{session.userId})
+              </p>
+            )}
+          </div>
+          <button
+            onClick={onClose}
+            className="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            </div>
+          ) : error ? (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <p className="text-red-600">{error}</p>
+            </div>
+          ) : session ? (
+            <div className="space-y-4">
+              {/* Session Info */}
+              <div className="bg-gray-50 rounded-lg p-4 grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="font-medium text-gray-700">{t('admin.sessions.id')}:</span>
+                  <p className="text-gray-600 font-mono text-xs mt-1 break-all">{session.id}</p>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-700">{t('admin.sessions.created')}:</span>
+                  <p className="text-gray-600 mt-1">{new Date(session.createdAt).toLocaleString()}</p>
+                </div>
+              </div>
+
+              {/* Messages */}
+              <div className="space-y-3">
+                <h3 className="font-bold text-gray-800 text-lg">
+                  {t('admin.sessions.conversation')} ({session.messages.length} {t('admin.sessions.messages')})
+                </h3>
+
+                {session.messages.length === 0 ? (
+                  <div className="text-center text-gray-500 py-12">
+                    {t('admin.sessions.noMessages')}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {session.messages.map((message, index) => (
+                      <div
+                        key={index}
+                        className={`p-4 rounded-lg ${
+                          message.role === 'user'
+                            ? 'bg-blue-50 border border-blue-200 ml-8'
+                            : message.role === 'assistant'
+                            ? 'bg-purple-50 border border-purple-200 mr-8'
+                            : 'bg-gray-100 border border-gray-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <span
+                            className={`px-2 py-1 rounded text-xs font-semibold ${
+                              message.role === 'user'
+                                ? 'bg-blue-200 text-blue-800'
+                                : message.role === 'assistant'
+                                ? 'bg-purple-200 text-purple-800'
+                                : 'bg-gray-300 text-gray-800'
+                            }`}
+                          >
+                            {message.role === 'user'
+                              ? t('admin.sessions.roleUser')
+                              : message.role === 'assistant'
+                              ? t('admin.sessions.roleAssistant')
+                              : t('admin.sessions.roleSystem')}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            #{index + 1}
+                          </span>
+                        </div>
+                        <p className="text-gray-700 whitespace-pre-wrap break-words">
+                          {message.content}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        {/* Footer */}
+        <div className="border-t border-gray-200 px-6 py-4 flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+          >
+            {t('common.close')}
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
