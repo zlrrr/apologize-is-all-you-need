@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../contexts/AuthContext';
 import { Message, ApologyStyle } from '../types';
 import { MessageBubble } from './MessageBubble';
 import { InputBox } from './InputBox';
@@ -24,6 +25,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 export const ChatInterface: React.FC = () => {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -40,24 +42,31 @@ export const ChatInterface: React.FC = () => {
 
   // Load sessions and active session on mount
   useEffect(() => {
-    loadSessionsFromBackend();
-    const activeId = getActiveSessionId();
-    if (activeId) {
-      loadSessionFromBackend(activeId);
+    if (user?.id) {
+      loadSessionsFromBackend();
+      const activeId = getActiveSessionId(user.id);
+      if (activeId) {
+        loadSessionFromBackend(activeId);
+      }
     }
-  }, []);
+  }, [user?.id]);
 
   /**
    * Load sessions from backend API
    */
   const loadSessionsFromBackend = async () => {
+    if (!user?.id) {
+      logger.warn('[ChatInterface] Cannot load sessions - user not authenticated');
+      return;
+    }
+
     try {
-      logger.info('[ChatInterface] Loading sessions from backend');
-      const stored = await getSessions();
+      logger.info('[ChatInterface] Loading sessions from backend', { userId: user.id });
+      const stored = await getSessions(user.id);
       const sessionList = stored.map(toSessionListItem);
       sessionList.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
       setSessions(sessionList);
-      logger.info('[ChatInterface] Sessions loaded', { count: sessionList.length });
+      logger.info('[ChatInterface] Sessions loaded', { userId: user.id, count: sessionList.length });
     } catch (error) {
       logger.error('[ChatInterface] Failed to load sessions', error);
       // Don't show error to user - sessions will be empty
@@ -68,21 +77,27 @@ export const ChatInterface: React.FC = () => {
    * Load a specific session from backend with full message history
    */
   const loadSessionFromBackend = async (sid: string) => {
+    if (!user?.id) {
+      logger.warn('[ChatInterface] Cannot load session - user not authenticated');
+      return;
+    }
+
     try {
       setIsLoadingSession(true);
-      logger.info('[ChatInterface] Loading session from backend', { sessionId: sid });
+      logger.info('[ChatInterface] Loading session from backend', { sessionId: sid, userId: user.id });
 
-      const stored = await getSession(sid);
+      const stored = await getSession(sid, user.id);
       if (stored) {
         setSessionId(sid);
         setMessages(stored.messages);
-        setActiveSessionId(sid);
+        setActiveSessionId(sid, user.id);
         logger.info('[ChatInterface] Session loaded', {
           sessionId: sid,
+          userId: user.id,
           messageCount: stored.messages.length,
         });
       } else {
-        logger.warn('[ChatInterface] Session not found', { sessionId: sid });
+        logger.warn('[ChatInterface] Session not found', { sessionId: sid, userId: user.id });
         setError('Session not found');
       }
     } catch (error) {
@@ -94,11 +109,13 @@ export const ChatInterface: React.FC = () => {
   };
 
   const handleNewSession = () => {
+    if (!user?.id) return;
+
     setSessionId(null);
     setMessages([]);
     setError(null);
-    clearActiveSessionId();
-    logger.info('[ChatInterface] New session started');
+    clearActiveSessionId(user.id);
+    logger.info('[ChatInterface] New session started', { userId: user.id });
   };
 
   const handleSelectSession = (sid: string) => {
@@ -106,9 +123,11 @@ export const ChatInterface: React.FC = () => {
   };
 
   const handleDeleteSession = async (sid: string) => {
+    if (!user?.id) return;
+
     try {
-      logger.info('[ChatInterface] Deleting session', { sessionId: sid });
-      await deleteStoredSession(sid);
+      logger.info('[ChatInterface] Deleting session', { sessionId: sid, userId: user.id });
+      await deleteStoredSession(sid, user.id);
 
       // Reload sessions list from backend
       await loadSessionsFromBackend();
@@ -118,7 +137,7 @@ export const ChatInterface: React.FC = () => {
         handleNewSession();
       }
 
-      logger.info('[ChatInterface] Session deleted successfully', { sessionId: sid });
+      logger.info('[ChatInterface] Session deleted successfully', { sessionId: sid, userId: user.id });
     } catch (error) {
       logger.error('[ChatInterface] Failed to delete session', { sessionId: sid, error });
       setError('Failed to delete session');
@@ -126,9 +145,9 @@ export const ChatInterface: React.FC = () => {
   };
 
   const handleSendMessage = async (content: string) => {
-    if (!content.trim()) return;
+    if (!content.trim() || !user?.id) return;
 
-    logger.logUserAction('Send message', { messageLength: content.length, style });
+    logger.logUserAction('Send message', { messageLength: content.length, style, userId: user.id });
 
     setIsLoading(true);
     setError(null);
@@ -137,8 +156,8 @@ export const ChatInterface: React.FC = () => {
     const currentSessionId = sessionId || uuidv4();
     if (!sessionId) {
       setSessionId(currentSessionId);
-      setActiveSessionId(currentSessionId);
-      logger.info('[ChatInterface] Created new session', { sessionId: currentSessionId });
+      setActiveSessionId(currentSessionId, user.id);
+      logger.info('[ChatInterface] Created new session', { sessionId: currentSessionId, userId: user.id });
     }
 
     // Add user message to UI immediately
@@ -159,6 +178,7 @@ export const ChatInterface: React.FC = () => {
 
       logger.info('[ChatInterface] Message sent successfully', {
         sessionId: currentSessionId,
+        userId: user.id,
         tokensUsed: response.tokensUsed,
       });
 
@@ -171,7 +191,7 @@ export const ChatInterface: React.FC = () => {
       setMessages((prev) => [...prev, assistantMessage]);
 
       // Invalidate cache and reload sessions to show updated session
-      invalidateCache();
+      invalidateCache(user.id);
       await loadSessionsFromBackend();
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to send message';
@@ -186,13 +206,13 @@ export const ChatInterface: React.FC = () => {
   };
 
   const handleClearHistory = async () => {
-    if (sessionId) {
+    if (sessionId && user?.id) {
       if (confirm(t('chat.confirmClear'))) {
         try {
-          logger.info('[ChatInterface] Clearing session history', { sessionId });
+          logger.info('[ChatInterface] Clearing session history', { sessionId, userId: user.id });
 
           // Delete session from backend
-          await deleteStoredSession(sessionId);
+          await deleteStoredSession(sessionId, user.id);
 
           // Reload sessions
           await loadSessionsFromBackend();
@@ -200,7 +220,7 @@ export const ChatInterface: React.FC = () => {
           // Clear UI
           handleNewSession();
 
-          logger.info('[ChatInterface] Session history cleared', { sessionId });
+          logger.info('[ChatInterface] Session history cleared', { sessionId, userId: user.id });
         } catch (error) {
           logger.error('[ChatInterface] Failed to clear history', { sessionId, error });
           setError('Failed to clear history');

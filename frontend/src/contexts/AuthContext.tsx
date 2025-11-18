@@ -6,6 +6,7 @@ import {
   getCurrentUser,
   setAuthToken,
 } from '../services/api';
+import { clearAllSessionData } from '../utils/storage';
 import logger from '../utils/logger';
 
 interface AuthContextType {
@@ -113,9 +114,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const logout = () => {
+    // Clear authentication data
     clearAuthData();
+
+    // Clear all session-related data from localStorage
+    // This ensures clean state when switching users
+    clearAllSessionData();
+
+    // Clear user state
     setUser(null);
-    logger.info('Logout successful');
+
+    logger.info('Logout successful - all session data cleared');
   };
 
   const clearAuthData = () => {

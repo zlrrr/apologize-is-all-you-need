@@ -97,7 +97,8 @@
     "save": "Save",
     "delete": "Delete",
     "edit": "Edit",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "close": "Close"
   },
   "settings": {
     "language": "Language",
@@ -147,7 +148,16 @@
       "user": "User",
       "messages": "messages",
       "updated": "Updated",
-      "empty": "No sessions found"
+      "empty": "No sessions found",
+      "clickToView": "Click to view details",
+      "details": "Session Details",
+      "id": "Session ID",
+      "created": "Created",
+      "conversation": "Conversation",
+      "noMessages": "No messages yet",
+      "roleUser": "User",
+      "roleAssistant": "Assistant",
+      "roleSystem": "System"
     }
   }
 }
